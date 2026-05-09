@@ -1,10 +1,26 @@
-// LoginPage — RESET Budget
-// Google OAuth 2.0 로그인 (implicit flow, access_token 직접 수신)
+// LoginPage — 머니셋
+// Google OAuth 2.0 implicit flow + redirect (팝업 미사용 → 모바일 호환)
 
-import { useState } from 'react';
-import { useGoogleLogin } from '@react-oauth/google';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../../app/store/appStore';
 import styles from './LoginPage.module.css';
+
+const SCOPE = [
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive.appdata',
+].join(' ');
+
+function startOAuthRedirect() {
+  const params = new URLSearchParams({
+    client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID as string,
+    redirect_uri: window.location.origin,
+    response_type: 'token',
+    scope: SCOPE,
+    include_granted_scopes: 'true',
+  });
+  window.location.href =
+    `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
 
 export function LoginPage() {
   const login = useAppStore((s) => s.login);
@@ -12,30 +28,34 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGoogleLogin = useGoogleLogin({
-    flow: 'implicit',
-    scope: [
-      'https://www.googleapis.com/auth/drive.file',
-      'https://www.googleapis.com/auth/drive.appdata',
-    ].join(' '),
-    onSuccess: async (tokenResponse) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        await login(tokenResponse.access_token);
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Google Drive 연결 중 오류가 발생했습니다. 다시 시도해주세요.'
-        );
-        setIsLoading(false);
-      }
-    },
-    onError: () => {
-      setError('Google 로그인이 취소되었거나 실패했습니다. 다시 시도해주세요.');
-    },
-  });
+  // OAuth 리다이렉트 복귀 시 해시에서 access_token 추출
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.includes('access_token')) return;
+
+    const params = new URLSearchParams(hash.slice(1)); // '#' 제거
+    const token = params.get('access_token');
+    if (!token) return;
+
+    // URL 해시 정리
+    window.history.replaceState(null, '', window.location.pathname);
+
+    setIsLoading(true);
+    setError(null);
+    login(token).catch((err) => {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Google Drive 연결 중 오류가 발생했습니다. 다시 시도해주세요.'
+      );
+      setIsLoading(false);
+    });
+  }, [login]);
+
+  function handleGoogleLogin() {
+    setIsLoading(true);
+    startOAuthRedirect();
+  }
 
   return (
     <div className={styles.container}>
@@ -55,7 +75,7 @@ export function LoginPage() {
 
           <button
             className={styles.googleBtn}
-            onClick={() => handleGoogleLogin()}
+            onClick={handleGoogleLogin}
             disabled={isLoading}
             type="button"
           >
