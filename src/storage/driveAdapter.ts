@@ -74,6 +74,8 @@ export interface DriveAdapter {
   createLedger(name: string): Promise<string>; // rootFolderId 반환
   findExistingLedger(): Promise<string | null>; // rootFolderId or null
   openLedger(rootFolderId: string): Promise<Manifest>;
+  /** 로그인 시 폴더 내 파일 ID를 일괄 캐싱 (findFile API 호출 횟수 최소화) */
+  warmCache(ym: string): Promise<void>;
 
   // Manifest
   readManifest(): Promise<Manifest>;

@@ -164,8 +164,11 @@ export const useAppStore = create<AppStore>((set) => ({
       }
     }
 
-    // 3~5. Drive에서 config / 자산 / 부채 / 이번달 거래 / 예산계획 병렬 읽기
+    // 2-b. 파일 ID 일괄 캐싱 (이후 findFile API 호출 제거)
     const ym = currentYM();
+    try { await driveAdapter.warmCache(ym); } catch { /* 무시 */ }
+
+    // 3~5. Drive에서 config / 자산 / 부채 / 이번달 거래 / 예산계획 병렬 읽기
     const [configEnv, accountsEnv, liabilitiesEnv, txEnv, planEnv] =
       await Promise.allSettled([
         driveAdapter.readConfig(),

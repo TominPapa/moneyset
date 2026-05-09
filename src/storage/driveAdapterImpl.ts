@@ -34,6 +34,10 @@ function makeEnvelope<T>(fileType: string, data: T): FileEnvelope<T> {
 export class DriveAdapterImpl implements DriveAdapter {
   private accessToken: string | null = null;
   private rootFolderId: string | null = null;
+  /** 파일 ID 캐시: `${parentId}/${fileName}` → fileId */
+  private fileIdCache = new Map<string, string>();
+  /** 폴더 ID 캐시: `${parentId}/${folderName}` → folderId */
+  private folderIdCache = new Map<string, string>();
 
   // ─── 인증 ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +57,8 @@ export class DriveAdapterImpl implements DriveAdapter {
   async signOut(): Promise<void> {
     this.accessToken = null;
     this.rootFolderId = null;
+    this.fileIdCache.clear();
+    this.folderIdCache.clear();
   }
 
   // ─── 내부 fetch 래퍼 ──────────────────────────────────────────────────────
@@ -76,22 +82,32 @@ export class DriveAdapterImpl implements DriveAdapter {
   // ─── 파일 탐색 ────────────────────────────────────────────────────────────
 
   private async findFile(name: string, parentId: string): Promise<string | null> {
+    const key = `${parentId}/${name}`;
+    if (this.fileIdCache.has(key)) return this.fileIdCache.get(key)!;
     const q = encodeURIComponent(
       `name='${name}' and '${parentId}' in parents and trashed=false`
     );
     const res = await this.fetch(`${DRIVE_API}/files?q=${q}&fields=files(id)`);
     const json = await res.json() as { files: { id: string }[] };
-    return json.files[0]?.id ?? null;
+    const id = json.files[0]?.id ?? null;
+    if (id) this.fileIdCache.set(key, id);
+    return id;
   }
 
   private async findFolder(name: string, parentId?: string): Promise<string | null> {
+    if (parentId) {
+      const key = `${parentId}/${name}`;
+      if (this.folderIdCache.has(key)) return this.folderIdCache.get(key)!;
+    }
     const parentClause = parentId ? ` and '${parentId}' in parents` : '';
     const q = encodeURIComponent(
       `name='${name}' and mimeType='application/vnd.google-apps.folder'${parentClause} and trashed=false`
     );
     const res = await this.fetch(`${DRIVE_API}/files?q=${q}&fields=files(id)`);
     const json = await res.json() as { files: { id: string }[] };
-    return json.files[0]?.id ?? null;
+    const id = json.files[0]?.id ?? null;
+    if (id && parentId) this.folderIdCache.set(`${parentId}/${name}`, id);
+    return id;
   }
 
   private async createFolder(name: string, parentId?: string): Promise<string> {
@@ -191,7 +207,41 @@ export class DriveAdapterImpl implements DriveAdapter {
 
   async openLedger(rootFolderId: string): Promise<Manifest> {
     this.rootFolderId = rootFolderId;
-    return this.readManifest();
+    // 로그인 시 manifest 내용이 실제로 필요하지 않으므로 stub 반환 (API 호출 절약)
+    return { rootFolderId } as Manifest;
+  }
+
+  /** 로그인 최적화: 루트 및 months 폴더의 파일 ID를 일괄 조회해 캐싱 */
+  async warmCache(_ym: string): Promise<void> {
+    const rootId = this.rootFolderId;
+    if (!rootId) return;
+
+    // 루트 폴더 파일 목록 조회 (config, accounts, liabilities, manifest + 하위 폴더)
+    const rootRes = await this.fetch(
+      `${DRIVE_API}/files?q=${encodeURIComponent(`'${rootId}' in parents and trashed=false`)}&fields=files(id,name,mimeType)&pageSize=100`
+    );
+    const rootJson = await rootRes.json() as { files: { id: string; name: string; mimeType: string }[] };
+
+    let monthsFolderId: string | null = null;
+    for (const f of rootJson.files) {
+      if (f.mimeType === 'application/vnd.google-apps.folder') {
+        this.folderIdCache.set(`${rootId}/${f.name}`, f.id);
+        if (f.name === 'months') monthsFolderId = f.id;
+      } else {
+        this.fileIdCache.set(`${rootId}/${f.name}`, f.id);
+      }
+    }
+
+    // months 폴더 파일 목록 조회 (이번 달 transactions, budget plan)
+    if (monthsFolderId) {
+      const monthRes = await this.fetch(
+        `${DRIVE_API}/files?q=${encodeURIComponent(`'${monthsFolderId}' in parents and trashed=false`)}&fields=files(id,name)&pageSize=100`
+      );
+      const monthJson = await monthRes.json() as { files: { id: string; name: string }[] };
+      for (const f of monthJson.files) {
+        this.fileIdCache.set(`${monthsFolderId}/${f.name}`, f.id);
+      }
+    }
   }
 
   // ─── Manifest ─────────────────────────────────────────────────────────────
