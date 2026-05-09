@@ -91,6 +91,43 @@
   color: var(--text-secondary);
 }
 
+.stepBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--accent-1) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-1) 25%, transparent);
+  border-radius: var(--radius-md);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.stepDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-1);
+  flex-shrink: 0;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
+.stepText {
+  font-size: var(--size-sm);
+  color: var(--accent-1);
+  font-weight: 600;
+}
+
 .notice {
   font-size: var(--size-xs);
   color: var(--text-muted);

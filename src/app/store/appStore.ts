@@ -22,6 +22,8 @@ interface AppStore {
   // 인증
   isAuthenticated: boolean;
   setAuthenticated: (v: boolean) => void;
+  /** 첫 로그인 진행 단계 메시지 (null = 로딩 아님) */
+  loginStep: string | null;
 
   // 온보딩
   onboardingCompleted: boolean;
@@ -151,6 +153,7 @@ export const useAppStore = create<AppStore>((set) => ({
     set((s) => ({ config: { ...s.config, themeMode: mode } })),
 
   isAuthenticated: false,
+  loginStep: null,
   setAuthenticated: (v) => set({ isAuthenticated: v }),
 
   onboardingCompleted: false,
@@ -218,11 +221,13 @@ export const useAppStore = create<AppStore>((set) => ({
     }
 
     // ── 신규 사용자 전체 Drive 셋업 ───────────────────────────────────────────
+    set({ loginStep: 'Google Drive에 연결하는 중…' });
     let driveAppState: AppState | null = null;
     try {
       driveAppState = await driveAdapter.readAppState();
     } catch { /* appDataFolder 미접근 — 신규 사용자 */ }
 
+    set({ loginStep: '장부를 준비하는 중…' });
     let rootFolderId: string;
     if (driveAppState?.currentLedgerRootFolderId) {
       const manifest = await driveAdapter.openLedger(driveAppState.currentLedgerRootFolderId);
@@ -233,10 +238,12 @@ export const useAppStore = create<AppStore>((set) => ({
         const manifest = await driveAdapter.openLedger(existing);
         rootFolderId = manifest.rootFolderId;
       } else {
+        set({ loginStep: '처음 오셨군요! 장부를 만드는 중…' });
         rootFolderId = await driveAdapter.createLedger('RESET Budget');
       }
     }
 
+    set({ loginStep: '데이터를 불러오는 중…' });
     try { await driveAdapter.warmCache(ym); } catch { /* 무시 */ }
 
     const [configEnv, accountsEnv, liabilitiesEnv, txEnv, planEnv] =
@@ -261,8 +268,8 @@ export const useAppStore = create<AppStore>((set) => ({
     }
     if (planEnv.status === 'fulfilled' && planEnv.value?.data) saveBudgetPlan(planEnv.value.data);
 
+    set({ loginStep: '거의 다 됐어요!' });
     const onboardingCompleted = driveAppState?.onboardingCompleted ?? false;
-    set({ isAuthenticated: true, config, onboardingCompleted, accounts, liabilities });
 
     const newState: AppState = {
       currentLedgerRootFolderId: rootFolderId,
@@ -279,6 +286,8 @@ export const useAppStore = create<AppStore>((set) => ({
       localCache.setAccounts(accounts),
       localCache.setLiabilities(liabilities),
     ]);
+
+    set({ isAuthenticated: true, config, onboardingCompleted, accounts, liabilities, loginStep: null });
   },
 
   // ─── 로그아웃 ──────────────────────────────────────────────────────────────

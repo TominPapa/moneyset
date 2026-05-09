@@ -8,6 +8,7 @@ import styles from './LoginPage.module.css';
 
 export function LoginPage() {
   const login = useAppStore((s) => s.login);
+  const loginStep = useAppStore((s) => s.loginStep);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +68,13 @@ export function LoginPage() {
               </>
             )}
           </button>
+
+          {isLoading && loginStep && (
+            <div className={styles.stepBox}>
+              <span className={styles.stepDot} />
+              <span className={styles.stepText}>{loginStep}</span>
+            </div>
+          )}
 
           <p className={styles.notice}>
             데이터는 본인의 Google Drive에만 저장됩니다.
