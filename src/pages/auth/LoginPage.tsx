@@ -25,20 +25,17 @@ function startOAuthRedirect() {
 export function LoginPage() {
   const login = useAppStore((s) => s.login);
   const loginStep = useAppStore((s) => s.loginStep);
-  const [isLoading, setIsLoading] = useState(false);
+  // OAuth 복귀 시 토큰이 sessionStorage에 있으면 즉시 로딩 상태로 시작
+  const [isLoading, setIsLoading] = useState(
+    () => !!sessionStorage.getItem('__oauth_token__')
+  );
   const [error, setError] = useState<string | null>(null);
 
-  // OAuth 리다이렉트 복귀 시 해시에서 access_token 추출
+  // OAuth 리다이렉트 복귀 시 sessionStorage에서 토큰 추출 (main.tsx에서 저장)
   useEffect(() => {
-    const hash = window.location.hash;
-    if (!hash.includes('access_token')) return;
-
-    const params = new URLSearchParams(hash.slice(1)); // '#' 제거
-    const token = params.get('access_token');
+    const token = sessionStorage.getItem('__oauth_token__');
     if (!token) return;
-
-    // URL 해시 정리
-    window.history.replaceState(null, '', window.location.pathname);
+    sessionStorage.removeItem('__oauth_token__');
 
     setIsLoading(true);
     setError(null);
