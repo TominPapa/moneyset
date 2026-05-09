@@ -55,6 +55,55 @@ function currentYM(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+// ─── 백그라운드 Drive 동기화 ──────────────────────────────────────────────────
+// 기존 사용자 로그인 시 UI 블로킹 없이 Drive 최신 데이터를 로컬에 반영
+async function syncDriveInBackground(cachedState: AppState, ym: string): Promise<void> {
+  try {
+    const driveAppState = await driveAdapter.readAppState();
+    const rootFolderId = driveAppState?.currentLedgerRootFolderId
+      ?? cachedState.currentLedgerRootFolderId;
+    if (rootFolderId !== cachedState.currentLedgerRootFolderId) {
+      await driveAdapter.openLedger(rootFolderId);
+    }
+
+    await driveAdapter.warmCache(ym);
+
+    const [configEnv, accountsEnv, liabilitiesEnv, txEnv, planEnv] =
+      await Promise.allSettled([
+        driveAdapter.readConfig(),
+        driveAdapter.readAccounts(),
+        driveAdapter.readLiabilities(),
+        driveAdapter.readTransactions(ym),
+        driveAdapter.readBudgetPlan(ym),
+      ]);
+
+    const config = configEnv.status === 'fulfilled' ? guardConfig(configEnv.value?.data) : null;
+    const accounts = accountsEnv.status === 'fulfilled' ? guardArray<Account>(accountsEnv.value?.data) : null;
+    const liabilities = liabilitiesEnv.status === 'fulfilled' ? guardArray<Liability>(liabilitiesEnv.value?.data) : null;
+
+    const update: Partial<{ config: AppConfig; accounts: Account[]; liabilities: Liability[] }> = {};
+    if (config) update.config = config;
+    if (accounts) update.accounts = accounts;
+    if (liabilities) update.liabilities = liabilities;
+    if (Object.keys(update).length > 0) useAppStore.setState(update);
+
+    if (txEnv.status === 'fulfilled') {
+      const driveTransactions = guardArray<Transaction>(txEnv.value?.data);
+      if (driveTransactions.length > 0) await localCache.setTransactions(ym, driveTransactions);
+    }
+    if (planEnv.status === 'fulfilled' && planEnv.value?.data) saveBudgetPlan(planEnv.value.data);
+
+    const newState: AppState = { ...cachedState, currentLedgerRootFolderId: rootFolderId, lastSyncAt: new Date().toISOString() };
+    await Promise.all([
+      driveAdapter.writeAppState(newState),
+      localCache.setAppState(newState),
+      ...(config ? [localCache.setConfig(config)] : []),
+      ...(accounts ? [localCache.setAccounts(accounts)] : []),
+      ...(liabilities ? [localCache.setLiabilities(liabilities)] : []),
+    ]);
+  } catch { /* 백그라운드 실패 무시 */ }
+}
+
 // ─── Drive 데이터 유효성 보정 헬퍼 ────────────────────────────────────────────
 
 /** Drive에서 읽은 원시 값을 AppConfig로 안전하게 변환. 손상 또는 스키마 불일치 대응. */
@@ -138,21 +187,45 @@ export const useAppStore = create<AppStore>((set) => ({
   // ─── Google OAuth 로그인 후 처리 ──────────────────────────────────────────
   login: async (token: string) => {
     driveAdapter.setAccessToken(token);
+    const ym = currentYM();
 
-    // 1. Drive appDataFolder에서 AppState 조회
+    // ── 기존 사용자 빠른 경로 ──────────────────────────────────────────────────
+    // localCache에 rootFolderId + config가 있으면 즉시 UI 복원 후 백그라운드 동기화
+    const [cachedState, cachedConfig, cachedAccounts, cachedLiabilities] =
+      await Promise.all([
+        localCache.getAppState(),
+        localCache.getConfig(),
+        localCache.getAccounts(),
+        localCache.getLiabilities(),
+      ]);
+
+    const hasCache = !!(cachedState?.currentLedgerRootFolderId && cachedConfig);
+
+    if (hasCache) {
+      // 즉시 화면 표시 (Drive API 호출 0회)
+      await driveAdapter.openLedger(cachedState!.currentLedgerRootFolderId);
+      set({
+        isAuthenticated: true,
+        config: guardConfig(cachedConfig),
+        accounts: cachedAccounts ?? [],
+        liabilities: cachedLiabilities ?? [],
+        onboardingCompleted: cachedState!.onboardingCompleted,
+      });
+
+      // 백그라운드에서 Drive와 동기화 (UI 블로킹 없음)
+      syncDriveInBackground(cachedState!, ym).catch(() => {});
+      return;
+    }
+
+    // ── 신규 사용자 전체 Drive 셋업 ───────────────────────────────────────────
     let driveAppState: AppState | null = null;
     try {
       driveAppState = await driveAdapter.readAppState();
-    } catch {
-      // appDataFolder 미접근 — 신규 사용자
-    }
+    } catch { /* appDataFolder 미접근 — 신규 사용자 */ }
 
-    // 2. 장부(Ledger) 열기 또는 생성
     let rootFolderId: string;
     if (driveAppState?.currentLedgerRootFolderId) {
-      const manifest = await driveAdapter.openLedger(
-        driveAppState.currentLedgerRootFolderId,
-      );
+      const manifest = await driveAdapter.openLedger(driveAppState.currentLedgerRootFolderId);
       rootFolderId = manifest.rootFolderId;
     } else {
       const existing = await driveAdapter.findExistingLedger();
@@ -164,11 +237,8 @@ export const useAppStore = create<AppStore>((set) => ({
       }
     }
 
-    // 2-b. 파일 ID 일괄 캐싱 (이후 findFile API 호출 제거)
-    const ym = currentYM();
     try { await driveAdapter.warmCache(ym); } catch { /* 무시 */ }
 
-    // 3~5. Drive에서 config / 자산 / 부채 / 이번달 거래 / 예산계획 병렬 읽기
     const [configEnv, accountsEnv, liabilitiesEnv, txEnv, planEnv] =
       await Promise.allSettled([
         driveAdapter.readConfig(),
@@ -179,37 +249,21 @@ export const useAppStore = create<AppStore>((set) => ({
       ]);
 
     const config =
-      configEnv.status === 'fulfilled'
-        ? guardConfig(configEnv.value?.data)
-        : defaultAppConfig;
-
+      configEnv.status === 'fulfilled' ? guardConfig(configEnv.value?.data) : defaultAppConfig;
     const accounts =
-      accountsEnv.status === 'fulfilled'
-        ? guardArray<Account>(accountsEnv.value?.data)
-        : [];
-
+      accountsEnv.status === 'fulfilled' ? guardArray<Account>(accountsEnv.value?.data) : [];
     const liabilities =
-      liabilitiesEnv.status === 'fulfilled'
-        ? guardArray<Liability>(liabilitiesEnv.value?.data)
-        : [];
+      liabilitiesEnv.status === 'fulfilled' ? guardArray<Liability>(liabilitiesEnv.value?.data) : [];
 
-    // Drive → localCache 동기화 (다기기 지원, last-write-wins)
     if (txEnv.status === 'fulfilled') {
       const driveTransactions = guardArray<Transaction>(txEnv.value?.data);
-      if (driveTransactions.length > 0) {
-        await localCache.setTransactions(ym, driveTransactions);
-      }
+      if (driveTransactions.length > 0) await localCache.setTransactions(ym, driveTransactions);
     }
-    if (planEnv.status === 'fulfilled' && planEnv.value?.data) {
-      saveBudgetPlan(planEnv.value.data);
-    }
+    if (planEnv.status === 'fulfilled' && planEnv.value?.data) saveBudgetPlan(planEnv.value.data);
 
     const onboardingCompleted = driveAppState?.onboardingCompleted ?? false;
-
-    // 6. Zustand 상태 갱신
     set({ isAuthenticated: true, config, onboardingCompleted, accounts, liabilities });
 
-    // 7. AppState + config Drive + localCache에 저장
     const newState: AppState = {
       currentLedgerRootFolderId: rootFolderId,
       onboardingCompleted,
