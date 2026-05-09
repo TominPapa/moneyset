@@ -164,47 +164,44 @@ export const useAppStore = create<AppStore>((set) => ({
       }
     }
 
-    // 3. Drive에서 AppConfig 읽기 (없으면 기본값 사용) + 유효성 보정
-    let config = defaultAppConfig;
-    try {
-      const configEnv = await driveAdapter.readConfig();
-      config = guardConfig(configEnv?.data);
-    } catch {
-      // config.json 미존재 — 온보딩 단계에서 생성됨
-    }
-
-    // 4. Drive에서 자산/부채 읽기 + 유효성 보정
-    let accounts: Account[] = [];
-    let liabilities: Liability[] = [];
-    try {
-      const accountsEnv = await driveAdapter.readAccounts();
-      accounts = guardArray<Account>(accountsEnv?.data);
-    } catch { /* 미존재 */ }
-    try {
-      const liabilitiesEnv = await driveAdapter.readLiabilities();
-      liabilities = guardArray<Liability>(liabilitiesEnv?.data);
-    } catch { /* 미존재 */ }
-
-    const onboardingCompleted = driveAppState?.onboardingCompleted ?? false;
-
-    // 5. 이번 달 데이터를 Drive → localCache로 동기화 (다기기 지원)
-    //    last-write-wins: Drive가 최신 소스로 가정
+    // 3~5. Drive에서 config / 자산 / 부채 / 이번달 거래 / 예산계획 병렬 읽기
     const ym = currentYM();
-    // 5-a. 거래 내역
-    try {
-      const txEnv = await driveAdapter.readTransactions(ym);
-      const driveTransactions = guardArray<Transaction>(txEnv?.data);
+    const [configEnv, accountsEnv, liabilitiesEnv, txEnv, planEnv] =
+      await Promise.allSettled([
+        driveAdapter.readConfig(),
+        driveAdapter.readAccounts(),
+        driveAdapter.readLiabilities(),
+        driveAdapter.readTransactions(ym),
+        driveAdapter.readBudgetPlan(ym),
+      ]);
+
+    const config =
+      configEnv.status === 'fulfilled'
+        ? guardConfig(configEnv.value?.data)
+        : defaultAppConfig;
+
+    const accounts =
+      accountsEnv.status === 'fulfilled'
+        ? guardArray<Account>(accountsEnv.value?.data)
+        : [];
+
+    const liabilities =
+      liabilitiesEnv.status === 'fulfilled'
+        ? guardArray<Liability>(liabilitiesEnv.value?.data)
+        : [];
+
+    // Drive → localCache 동기화 (다기기 지원, last-write-wins)
+    if (txEnv.status === 'fulfilled') {
+      const driveTransactions = guardArray<Transaction>(txEnv.value?.data);
       if (driveTransactions.length > 0) {
         await localCache.setTransactions(ym, driveTransactions);
       }
-    } catch { /* 파일 미존재 또는 Drive 오류 — 무시 */ }
-    // 5-b. 예산 계획
-    try {
-      const planEnv = await driveAdapter.readBudgetPlan(ym);
-      if (planEnv?.data) {
-        saveBudgetPlan(planEnv.data);
-      }
-    } catch { /* 파일 미존재 또는 Drive 오류 — 무시 */ }
+    }
+    if (planEnv.status === 'fulfilled' && planEnv.value?.data) {
+      saveBudgetPlan(planEnv.value.data);
+    }
+
+    const onboardingCompleted = driveAppState?.onboardingCompleted ?? false;
 
     // 6. Zustand 상태 갱신
     set({ isAuthenticated: true, config, onboardingCompleted, accounts, liabilities });
