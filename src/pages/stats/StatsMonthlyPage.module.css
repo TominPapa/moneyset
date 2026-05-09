@@ -1,0 +1,248 @@
+/* StatsMonthlyPage.module.css — Design System V2 */
+
+.page {
+  display: flex; flex-direction: column;
+  min-height: 100%; background: var(--bg-0);
+  font-family: var(--font-sans); color: var(--text-0);
+}
+
+/* ── Top bar ── */
+.topBar {
+  display: flex; align-items: center; gap: 24px;
+  padding: 22px 36px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255,255,255,0.015) 0%, transparent 100%);
+  min-height: 80px; flex-shrink: 0;
+}
+.topBarLeft { display: flex; flex-direction: column; gap: 4px; }
+.subtitle {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-2);
+}
+.title {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 600; letter-spacing: -0.4px;
+}
+.monthNav {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; background: var(--bg-2);
+  border-radius: 12px; border: 1px solid var(--line);
+}
+.monthBtn {
+  display: flex; align-items: center; justify-content: center;
+  padding: 4px; color: var(--text-2); background: none; border: none;
+  cursor: pointer; min-height: unset; min-width: unset; transition: color 0.12s;
+}
+.monthBtn:hover { color: var(--text-0); }
+.monthLabel {
+  font-family: var(--font-mono); font-size: 14px; font-weight: 600; padding: 0 6px;
+}
+.topStats { display: flex; gap: 32px; margin-left: auto; }
+.topStat { min-width: 90px; }
+.topStatLabel {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-2); margin-bottom: 3px;
+}
+.topStatVal {
+  font-family: var(--font-mono); font-size: 14px; font-weight: 600;
+}
+
+/* ── Scroll area ── */
+.scroll {
+  flex: 1; overflow-y: auto;
+  padding: 24px 36px 48px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+/* ── Grid helpers ── */
+.grid2 {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.grid3 {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+
+/* ── Card ── */
+.card {
+  padding: 28px; border-radius: var(--r-lg);
+  background: var(--bg-2); border: 1px solid var(--line);
+}
+.cardHead {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.cardLabel {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-2);
+}
+
+/* Empty */
+.empty {
+  font-size: 13px; color: var(--text-2); padding: 20px 0;
+}
+
+/* ── DonutChart ── */
+.donutWrap {
+  display: grid; grid-template-columns: 240px 1fr;
+  gap: 20px; align-items: flex-start; margin-top: 8px;
+}
+.donutCenter {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.donutTotal {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 600;
+}
+.donutLegend {
+  display: flex; flex-direction: column;
+  max-height: 240px; overflow-y: auto;
+}
+.donutRow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid var(--line);
+}
+.donutDot {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+}
+.donutName { flex: 1; font-size: 12px; color: var(--text-1); }
+.donutPct {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-2); min-width: 28px; text-align: right;
+}
+.donutAmt {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600; min-width: 70px; text-align: right;
+}
+
+/* ── CalHeat ── */
+.calWeekRow {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 5px; margin-bottom: 6px;
+}
+.calWeekLabel {
+  font-size: 10px; color: var(--text-3); text-align: center;
+}
+.calGrid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;
+}
+.calCell {
+  aspect-ratio: 1; border-radius: 6px;
+  border: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  align-items: flex-end; justify-content: flex-start;
+  padding: 3px 4px; position: relative;
+  transition: opacity 0.12s;
+}
+.calCellSelected { outline: 2px solid var(--mint-500); outline-offset: 1px; }
+.calDay {
+  font-size: 10px; font-weight: 600;
+  color: var(--text-2); line-height: 1;
+}
+.calAmt {
+  font-family: var(--font-mono); font-size: 8px;
+  color: var(--text-0); font-weight: 600;
+  margin-top: 2px; line-height: 1;
+}
+
+/* ── 30-day bar chart ── */
+.barChartTitle {
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 600; letter-spacing: -0.4px; margin-top: 6px;
+}
+.barChartStats {
+  display: flex; gap: 24px;
+}
+.barStat {}
+.barStatLabel { font-size: 11px; color: var(--text-2); margin-bottom: 2px; }
+.barStatVal {
+  font-family: var(--font-mono); font-size: 14px; font-weight: 600;
+}
+.barChart {
+  display: flex; align-items: flex-end; gap: 2px;
+  height: 140px; margin-top: 4px;
+}
+.barCol {
+  flex: 1; display: flex; align-items: flex-end; height: 100%;
+}
+.barFill {
+  width: 100%; border-radius: 2px 2px 0 0; transition: height 0.4s ease;
+}
+.barAxisLabels {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--text-3); margin-top: 6px;
+}
+
+/* ── Day-of-week chart ── */
+.dowChart {
+  display: flex; gap: 4px; align-items: flex-end;
+  height: 100px; margin-top: 14px; margin-bottom: 10px;
+}
+.dowCol {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.dowBar {
+  width: 100%; border-radius: 2px 2px 0 0; transition: height 0.3s ease;
+}
+.dowLabel {
+  font-size: 10px; color: var(--text-3);
+}
+.dowInsight {
+  font-size: 11px; color: var(--text-2); margin-top: 4px;
+}
+
+/* ── Payment method ── */
+.pmRow { margin-top: 12px; }
+.pmRowHead {
+  display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;
+}
+.pmName { color: var(--text-1); }
+.pmAmt { font-family: var(--font-mono); font-weight: 600; }
+.progTrack {
+  height: 4px; background: var(--bg-3); border-radius: 2px; overflow: hidden;
+}
+.progFill {
+  height: 100%; background: var(--mint-500); border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+/* ── MoM comparison ── */
+.momRow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--line);
+}
+.momCat { flex: 1; font-size: 13px; color: var(--text-1); }
+.momAmt { font-family: var(--font-mono); font-size: 12px; font-weight: 600; }
+.momDelta {
+  font-size: 12px; font-weight: 600; min-width: 44px; text-align: right;
+}
+
+/* ── Transaction items ── */
+.txItem {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--line);
+}
+.txIcon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.txInfo { flex: 1; min-width: 0; }
+.txTitle { display: block; font-size: 13px; font-weight: 600; }
+.txMeta { display: block; font-size: 11px; color: var(--text-2); margin-top: 1px; }
+.txAmt { font-family: var(--font-mono); font-size: 13px; font-weight: 600; flex-shrink: 0; }
+
+/* ── Mobile ── */
+@media (max-width: 767px) {
+  .topBar { padding: 16px; flex-wrap: wrap; gap: 12px; min-height: unset; }
+  .topStats { gap: 16px; }
+  .scroll { padding: 16px 16px 80px; gap: 12px; }
+  .card { padding: 18px; }
+  .grid2 { grid-template-columns: 1fr; }
+  .grid3 { grid-template-columns: 1fr; }
+  .donutWrap { grid-template-columns: 1fr; }
+  .barChart { height: 80px; }
+  .dowChart { height: 70px; }
+}

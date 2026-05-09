@@ -1,0 +1,249 @@
+/* Global CSS — RESET Budget */
+/* New design system: warm dark, mint primary, gold accent */
+
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.css');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* ── Canvas / Surface (warm dark) ── */
+  --bg-0: #0A0D0C;
+  --bg-1: #111513;
+  --bg-2: #161B19;
+  --bg-3: #1E2522;
+  --bg-4: #252D29;
+  --line: rgba(255,255,255,0.06);
+  --line-strong: rgba(255,255,255,0.12);
+
+  /* ── Text ── */
+  --text-0: #F4F2EC;
+  --text-1: #CFCDC5;
+  --text-2: #8F8D85;
+  --text-3: #57554F;
+
+  /* ── Brand: Mint + Gold ── */
+  --mint-100: #D8F4EA;
+  --mint-300: #7BE2BD;
+  --mint-500: #3FD6A4;
+  --mint-600: #2BB789;
+  --mint-700: #1F8E6A;
+  --mint-ink: #042A1E;
+  --gold-300: #F0D79A;
+  --gold-500: #D9B26A;
+  --gold-600: #B38C47;
+
+  /* ── Semantic ── */
+  --danger: #F47272;
+  --danger-soft: rgba(244,114,114,0.12);
+  --warn: #E8B86A;
+  --warn-soft: rgba(232,184,106,0.12);
+  --ok: var(--mint-500);
+  --ok-soft: rgba(63,214,164,0.10);
+  --info: #8AB6F0;
+
+  /* ── Safety gradient band ── */
+  --safe-1: #3FD6A4;
+  --safe-2: #A8D96C;
+  --safe-3: #E8C86A;
+  --safe-4: #E89A5A;
+  --safe-5: #E86A5A;
+
+  /* ── Radii / Spacing ── */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-full: 999px;
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 20px;
+  --s-6: 24px; --s-7: 32px; --s-8: 40px; --s-9: 56px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.2);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,0.4), 0 2px 10px rgba(0,0,0,0.3);
+  --shadow-mint: 0 0 40px rgba(63,214,164,0.18);
+  --shadow-gold: 0 0 30px rgba(217,178,106,0.15);
+
+  /* ── Typography ── */
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-display: 'Fraunces', 'Pretendard Variable', serif;
+  --font-family: var(--font-sans);
+
+  /* ── Legacy alias mapping (backward compat) ── */
+  --bg-base:     var(--bg-0);
+  --bg-card:     var(--bg-2);
+  --bg-card-alt: var(--bg-3);
+  --text-primary:   var(--text-0);
+  --text-secondary: var(--text-1);
+  --text-muted:     var(--text-2);
+  --accent-1:    var(--mint-500);
+  --accent-2:    var(--mint-300);
+  --accent-3:    var(--gold-500);
+  --border:      var(--line);
+  --divider:     var(--line);
+  --expense:     var(--danger);
+  --income:      var(--mint-500);
+  --success:     var(--mint-500);
+  --error:       var(--danger);
+  --warning-color: var(--warn);
+  --info-color:  var(--info);
+  --safety-very-safe: var(--safe-1);
+  --safety-safe:      var(--safe-2);
+  --safety-warning:   var(--safe-3);
+  --safety-risk:      var(--safe-4);
+  --safety-critical:  var(--safe-5);
+  --radius-sm:   var(--r-sm);
+  --radius-md:   var(--r-md);
+  --radius-lg:   var(--r-lg);
+  --radius-full: var(--r-full);
+  --space-xs: var(--s-1);
+  --space-sm: var(--s-2);
+  --space-md: var(--s-4);
+  --space-lg: var(--s-6);
+  --space-xl: var(--s-7);
+  --space-2xl: 48px;
+  --size-xs: 0.75rem;
+  --size-sm: 0.875rem;
+  --size-md: 1rem;
+  --size-lg: 1.125rem;
+  --size-xl: 1.5rem;
+  --size-2xl: 2rem;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background-color: var(--bg-0);
+  color: var(--text-0);
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+  font-feature-settings: 'ss01', 'cv11';
+}
+
+/* ── Number / mono utility ── */
+.num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.display { font-family: var(--font-display); letter-spacing: -0.02em; }
+
+/* 터치 타겟 최소 44px 보장 */
+button, a, [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+  cursor: pointer;
+}
+
+button {
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* 스크롤바 스타일 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+/* 데스크탑: 각 페이지의 하단 nav 여백 제거 */
+@media (min-width: 768px) {
+  /* 모든 .page 클래스는 CSS Module이라 직접 접근 불가.
+     대신 main 컨테이너 내부의 첫 자식에 overflow를 위임한다.
+     padding-bottom 68px은 사이드바 레이아웃에서 불필요하지만
+     약간의 여백(약 20px)으로만 남아 UX에 지장 없음. */
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   View Transitions API — 페이지 전환 애니메이션
+   지원: Chrome 111+, Edge 111+, Safari 18+, Firefox 144+
+══════════════════════════════════════════════ */
+
+@keyframes vt-fade-in {
+  from { opacity: 0; }
+}
+@keyframes vt-fade-out {
+  to   { opacity: 0; }
+}
+@keyframes vt-slide-in {
+  from { opacity: 0; transform: translateX(20px); }
+}
+@keyframes vt-slide-out {
+  to   { opacity: 0; transform: translateX(-20px); }
+}
+
+/* 모션 감소 설정 무시 않도록 미디어쿼리로 감쌈 */
+@media (prefers-reduced-motion: no-preference) {
+  /* 기본 루트 전환 — 부드러운 크로스페이드 */
+  ::view-transition-old(root) {
+    animation: 120ms ease-out vt-fade-out;
+  }
+  ::view-transition-new(root) {
+    animation: 160ms ease-out vt-fade-in;
+  }
+
+  /* 메인 콘텐츠 — 슬라이드 + 페이드 */
+  ::view-transition-old(page-content) {
+    animation: 160ms cubic-bezier(0.4, 0, 0.2, 1) vt-slide-out;
+  }
+  ::view-transition-new(page-content) {
+    animation: 220ms cubic-bezier(0.4, 0, 0.2, 1) vt-slide-in;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   Bar / entry animations
+══════════════════════════════════════════════ */
+
+@keyframes bar-expand {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+/* ══════════════════════════════════════════════
+   공통 유틸리티
+══════════════════════════════════════════════ */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,0 +1,453 @@
+/* StatsAnnualPage.module.css — V2 PC Dashboard */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--bg-base);
+  padding-bottom: calc(var(--space-md) + 68px);
+}
+
+/* ── 상단 헤더 ── */
+
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.yearNav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.yearBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--size-md);
+  min-height: unset;
+  min-width: unset;
+  transition: background 0.15s;
+}
+
+.yearBtn:hover { background: var(--bg-card-alt); }
+
+.yearLabel {
+  font-size: var(--size-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 64px;
+  text-align: center;
+}
+
+.annualSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.annualChip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px var(--space-sm);
+  background: var(--bg-card-alt);
+  border-radius: var(--radius-sm);
+}
+
+.annualChipLabel {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.annualChipVal {
+  font-size: var(--size-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── 메인 그리드 ── */
+
+.mainGrid {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.leftCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ── 섹션 ── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sectionTitle {
+  font-size: var(--size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.loadingText {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-md);
+}
+
+/* ── 바 차트 ── */
+
+.hoverInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-card-alt);
+  border-radius: var(--radius-sm);
+  font-size: var(--size-xs);
+  font-weight: 600;
+  flex-wrap: wrap;
+  animation: fadeIn 0.1s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.hoverMonth {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.barChart {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-sm) var(--space-xs);
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 2px;
+  align-items: flex-end;
+  height: 180px;
+}
+
+.barColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  height: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  min-height: unset;
+  min-width: unset;
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+}
+
+.barColumnHovered {
+  background: var(--bg-card-alt);
+}
+
+.barPair {
+  display: flex;
+  gap: 1px;
+  align-items: flex-end;
+  flex: 1;
+  width: 100%;
+  max-width: 22px;
+}
+
+.barIncome {
+  flex: 1;
+  background: var(--income);
+  border-radius: 2px 2px 0 0;
+  opacity: 0.6;
+  min-height: 2px;
+  transition: height 0.3s ease;
+}
+
+.barExpense {
+  flex: 1;
+  background: var(--expense);
+  border-radius: 2px 2px 0 0;
+  opacity: 0.7;
+  min-height: 2px;
+  transition: height 0.3s ease;
+}
+
+.barValue {
+  font-size: 8px;
+  color: var(--text-muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.barLabel {
+  font-size: 8px;
+  color: var(--text-muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.chartLegend {
+  display: flex;
+  gap: var(--space-md);
+  font-size: var(--size-xs);
+  justify-content: center;
+}
+
+.legendIncome { color: var(--income); font-weight: 500; }
+.legendExpense { color: var(--expense); font-weight: 500; }
+
+/* ── 월별 저축 그리드 ── */
+
+.savingGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-xs);
+}
+
+.savingCell {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.savingMonth {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.savingVal {
+  font-size: var(--size-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.savingEmpty {
+  font-size: var(--size-sm);
+  color: var(--text-muted);
+}
+
+/* ── 카테고리 순위 ── */
+
+.catRankList {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.catRankItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--divider);
+}
+
+.catRankItem:last-child { border-bottom: none; }
+
+.catRankNum {
+  font-size: var(--size-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 16px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.catRankIcon { font-size: var(--size-sm); flex-shrink: 0; }
+
+.catRankName {
+  font-size: var(--size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 0 0 auto;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catRankBarTrack {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-card-alt);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.catRankBarFill {
+  height: 100%;
+  background: var(--expense);
+  border-radius: var(--radius-full);
+  opacity: 0.6;
+  transition: width 0.3s ease;
+}
+
+.catRankPct {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.catRankAmount {
+  font-size: var(--size-xs);
+  font-weight: 600;
+  color: var(--expense);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── 안전도 이력 ── */
+
+.safetyGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-xs);
+}
+
+.safetyCell {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  transition: border-color 0.3s;
+}
+
+.safetyCellMonth {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.safetyCellScore {
+  font-size: var(--size-md);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.safetyCellLevel {
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.safetyCellEmpty {
+  font-size: var(--size-sm);
+  color: var(--text-muted);
+}
+
+/* ── 연간 통계 ── */
+
+.annualStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-sm);
+}
+
+.annualStatCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.annualStatLabel {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.annualStatVal {
+  font-size: var(--size-md);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ── PC 레이아웃 ── */
+
+@media (min-width: 1024px) {
+  .page {
+    padding-bottom: 0;
+  }
+
+  .mainGrid {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .leftCol {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .rightCol {
+    width: 380px;
+    flex-shrink: 0;
+  }
+
+  .safetyGrid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  .savingGrid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .rightCol { width: 420px; }
+}

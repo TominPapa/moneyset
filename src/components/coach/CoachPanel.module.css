@@ -1,0 +1,184 @@
+/* CoachPanel.module.css — AI 코치 인사이트 패널 */
+
+/* ── 패널 컨테이너 ── */
+.panel {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 헤더 ── */
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+.panelTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  min-height: unset;
+  min-width: unset;
+  border-radius: 4px;
+  transition: color 0.1s, background 0.1s;
+}
+.closeBtn:hover {
+  color: var(--text-0);
+  background: var(--bg-3);
+}
+
+/* ── 팁 목록 ── */
+.tipList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── 팁 카드 ── */
+.tipCard {
+  padding: 10px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+}
+.tipCard_positive {
+  background: rgba(63, 214, 164, 0.06);
+  border-color: rgba(63, 214, 164, 0.18);
+}
+.tipCard_warning {
+  background: rgba(232, 184, 106, 0.06);
+  border-color: rgba(232, 184, 106, 0.2);
+}
+.tipCard_danger {
+  background: rgba(244, 114, 114, 0.07);
+  border-color: rgba(244, 114, 114, 0.22);
+}
+.tipCard_info {
+  background: var(--bg-3);
+  border-color: var(--line);
+}
+
+/* ── 팁 카드 헤더 ── */
+.tipCardHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+.tipIcon {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.tipIcon_positive {
+  background: rgba(63, 214, 164, 0.2);
+  color: var(--mint-300);
+}
+.tipIcon_warning {
+  background: rgba(232, 184, 106, 0.2);
+  color: var(--gold-300);
+}
+.tipIcon_danger {
+  background: rgba(244, 114, 114, 0.2);
+  color: var(--danger);
+}
+.tipIcon_info {
+  background: var(--bg-4);
+  color: var(--text-2);
+}
+
+.tipTitle {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-0);
+  line-height: 1.3;
+}
+.tipMetric {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.tipMetric_positive { color: var(--mint-300); }
+.tipMetric_warning  { color: var(--gold-300); }
+.tipMetric_danger   { color: var(--danger); }
+.tipMetric_info     { color: var(--text-2); }
+
+.tipBody {
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── 로딩 ── */
+.loadingRow {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+}
+.loadingDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--mint-500);
+  animation: blink 1.2s infinite;
+}
+.loadingDot:nth-child(2) { animation-delay: 0.2s; }
+.loadingDot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.2; }
+  40%           { opacity: 1; }
+}
+
+/* ── 빈 상태 ── */
+.emptyMsg {
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.6;
+  text-align: center;
+  padding: 8px 4px;
+}
+
+/* ── 하단 주석 ── */
+.panelFoot {
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.footNote {
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+}

@@ -1,0 +1,241 @@
+/* ResetPage.module.css */
+
+.page {
+  padding: var(--space-md);
+  padding-bottom: calc(var(--space-md) + 68px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ── 로딩 ── */
+
+.loadingText {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--size-sm);
+  margin-top: var(--space-2xl);
+}
+
+/* ── 히어로 카드 (no_reset / done) ── */
+
+.heroCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2xl) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  text-align: center;
+}
+
+.heroIcon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.heroTitle {
+  font-size: var(--size-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.heroDesc {
+  font-size: var(--size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.hint {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── 공백 카드 (select_mode) ── */
+
+.blankCard {
+  background: var(--bg-card);
+  border: 1px solid var(--warning-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  text-align: center;
+}
+
+.blankIcon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.blankTitle {
+  font-size: var(--size-md);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.blankPeriod {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── 모드 선택 ── */
+
+.selectLabel {
+  font-size: var(--size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.modeCard {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+}
+
+.modeCard:hover:not(:disabled) {
+  background: var(--bg-card-alt);
+  border-color: var(--accent-1);
+}
+
+.modeCard:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modeIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card-alt);
+  border-radius: var(--radius-md);
+}
+
+.modeInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modeTitle {
+  font-size: var(--size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modeDesc {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+}
+
+.modeArrow {
+  font-size: var(--size-lg);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ── 스텝 폼 (summary / detailed) ── */
+
+.stepHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  padding: var(--space-xs) 0;
+  font-size: var(--size-sm);
+  color: var(--accent-1);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.stepTitle {
+  font-size: var(--size-md);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.stepDesc {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.actionRow {
+  margin-top: var(--space-sm);
+}
+
+/* ── 날짜 목록 (detailed_form) ── */
+
+.dateList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.dateItem {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.dateItem:hover {
+  background: var(--bg-card-alt);
+}
+
+.dateItemLabel {
+  font-size: var(--size-sm);
+  color: var(--text-primary);
+}
+
+.dateItemAction {
+  font-size: var(--size-xs);
+  color: var(--accent-1);
+  font-weight: 500;
+}
+
+.addedCount {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  text-align: center;
+}

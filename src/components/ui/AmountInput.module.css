@@ -1,0 +1,73 @@
+/* AmountInput.module.css */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.label {
+  font-size: var(--size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.required {
+  color: var(--error);
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  padding-right: 2rem;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family);
+  font-size: var(--size-md);
+  min-height: 44px;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+  text-align: right;
+}
+
+.input:focus {
+  border-color: var(--accent-1);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.inputError {
+  border-color: var(--error);
+}
+
+.unit {
+  position: absolute;
+  right: var(--space-sm);
+  font-size: var(--size-sm);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.error {
+  font-size: var(--size-xs);
+  color: var(--error);
+  margin: 0;
+}
+
+.hint {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  margin: 0;
+}

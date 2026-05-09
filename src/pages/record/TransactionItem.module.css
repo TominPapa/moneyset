@@ -1,0 +1,112 @@
+/* TransactionItem.module.css — V1.5 스와이프 삭제 */
+
+/* ── 래퍼: overflow 숨김으로 삭제 버튼 클립 ── */
+.wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── 삭제 버튼 (우측에서 노출) ── */
+.deleteAction {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  background: var(--danger, #ef4444);
+  color: #fff;
+  border: none;
+  font-size: var(--size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.deleteAction:hover,
+.deleteAction:focus-visible {
+  background: #dc2626;
+  outline: none;
+}
+
+/* ── 아이템 본체 ── */
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+  background: var(--bg-card);
+  transition: transform 0.18s ease, background-color 0.1s;
+  user-select: none;
+  position: relative;
+  z-index: 1;
+  /* 드래그 중 스냅 비활성화를 위해 will-change 지정 */
+  will-change: transform;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--bg-card-alt);
+  outline: none;
+}
+
+/* ── 카테고리 아이콘 ── */
+.iconWrapper {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background: var(--bg-card-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* ── 텍스트 ── */
+.info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--size-md);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 금액 ── */
+.amountWrapper {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.amount {
+  font-size: var(--size-md);
+  font-weight: 600;
+}
+
+.expense {
+  color: var(--expense);
+}
+
+.income {
+  color: var(--income);
+}

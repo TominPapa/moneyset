@@ -1,0 +1,85 @@
+/* OnboardingStep1Page.module.css */
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.fieldLabel {
+  font-size: var(--size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.radioItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-height: 52px;
+}
+
+.radioItem:has(input:checked) {
+  border-color: var(--accent-1);
+}
+
+.radioItem input[type="radio"] {
+  accent-color: var(--accent-1);
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.radioText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.radioText strong {
+  font-size: var(--size-md);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.radioText small {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+}
+
+.themeToggle {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.themeBtn {
+  flex: 1;
+  padding: var(--space-sm);
+  min-height: 48px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.themeBtnActive {
+  border-color: var(--accent-1);
+  color: var(--accent-1);
+  background: color-mix(in srgb, var(--accent-1) 8%, var(--bg-card));
+}

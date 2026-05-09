@@ -1,0 +1,59 @@
+/* Select.module.css */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.label {
+  font-size: var(--size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.selectWrapper {
+  position: relative;
+}
+
+.select {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  padding-right: 2.5rem;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family);
+  font-size: var(--size-md);
+  min-height: 44px;
+  outline: none;
+  appearance: none;
+  transition: border-color 0.15s;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.select:focus {
+  border-color: var(--accent-1);
+}
+
+.selectError {
+  border-color: var(--error);
+}
+
+.arrow {
+  position: absolute;
+  right: var(--space-md);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  font-size: var(--size-sm);
+}
+
+.error {
+  font-size: var(--size-xs);
+  color: var(--error);
+  margin: 0;
+}

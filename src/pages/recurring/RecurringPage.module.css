@@ -1,0 +1,499 @@
+/* RecurringPage.module.css — V2 PC Dashboard */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--bg-base);
+  padding-bottom: calc(var(--space-md) + 68px);
+}
+
+/* ── 상단 바 ── */
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  font-size: var(--size-md);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.topStats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.topStat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px var(--space-sm);
+  background: var(--bg-card-alt);
+  border-radius: var(--radius-sm);
+}
+
+.topStatLabel { font-size: 10px; color: var(--text-muted); font-weight: 500; }
+.topStatVal   { font-size: var(--size-sm); font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+
+/* ── 메인 그리드 ── */
+
+.mainGrid {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.leftCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ── 탭 ── */
+
+.tabs {
+  display: flex;
+  gap: var(--space-xs);
+  background: var(--bg-card-alt);
+  border-radius: var(--radius-md);
+  padding: 4px;
+}
+
+.tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-xs);
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.tabActive {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.tabIcon  { font-size: 18px; line-height: 1; }
+.tabLabel { font-size: var(--size-xs); font-weight: 600; }
+.tabCount { font-size: 10px; color: var(--text-muted); }
+.tabAmount { font-size: 10px; color: var(--expense); font-weight: 600; }
+
+/* ── 탭 콘텐츠 ── */
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.tabHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tabSummary {
+  font-size: var(--size-sm);
+  color: var(--text-muted);
+}
+
+/* ── 카드 그리드 ── */
+
+.cardGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.card:hover { border-color: var(--accent-1); box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-1) 10%, transparent); }
+
+.cardEnabled {
+  border-left-color: var(--safety-safe, #22c55e);
+}
+
+.cardDisabled { opacity: 0.45; }
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.cardIcon { font-size: 20px; flex-shrink: 0; }
+
+.cardInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cardTitle {
+  font-size: var(--size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardMeta {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+}
+
+.cardRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.cardAmount {
+  font-size: var(--size-sm);
+  font-weight: 700;
+  color: var(--expense);
+  white-space: nowrap;
+}
+
+.dueBadge {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--bg-card-alt);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+
+.dueBadgeUrgent {
+  background: color-mix(in srgb, var(--expense) 15%, transparent);
+  color: var(--expense);
+  border-color: var(--expense);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--expense) 25%, transparent);
+}
+
+.cardBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cardDue {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+}
+
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.toggleBtn {
+  font-size: 10px;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: background 0.15s;
+  min-height: unset;
+}
+
+.toggleOn  { background: var(--safety-safe, #22c55e); color: #fff; }
+.toggleOff { background: var(--bg-card-alt); color: var(--text-muted); }
+
+.editBtn, .deleteBtn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+  min-height: unset;
+}
+
+.editBtn:hover   { color: var(--text-primary); background: var(--bg-card-alt); }
+.deleteBtn:hover { color: var(--danger, #ef4444); background: var(--bg-card-alt); }
+
+/* ── 빈 상태 ── */
+
+.emptyState {
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.emptyTitle {
+  font-size: var(--size-sm);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-xs);
+}
+
+.emptyHint {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── 섹션 ── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sectionTitle {
+  font-size: var(--size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ── 예정 납부 ── */
+
+.upcomingList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.upcomingItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.upcomingDateBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 36px;
+  flex-shrink: 0;
+  background: var(--bg-card-alt);
+  border-radius: var(--radius-sm);
+  padding: 3px 4px;
+}
+
+.upcomingDateBoxUrgent {
+  background: color-mix(in srgb, var(--expense) 15%, transparent);
+}
+
+.upcomingDateMo { font-size: 9px; color: var(--text-muted); font-weight: 600; }
+.upcomingDateDay { font-size: var(--size-sm); font-weight: 700; color: var(--text-primary); line-height: 1; }
+.upcomingToday { font-size: 8px; color: var(--expense); font-weight: 700; }
+.upcomingDday  { font-size: 9px; color: var(--text-muted); }
+
+.upcomingIcon { font-size: 18px; flex-shrink: 0; }
+
+.upcomingInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.upcomingTitle {
+  font-size: var(--size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upcomingMeta {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+}
+
+.upcomingAmount {
+  font-weight: 600;
+  font-size: var(--size-sm);
+  color: var(--expense);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── 종류별 비용 분포 ── */
+
+.kindSummaryList {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.kindSummaryItem {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--divider);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kindSummaryItem:last-child { border-bottom: none; }
+
+.kindSummaryHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.kindSummaryIcon { font-size: var(--size-sm); flex-shrink: 0; }
+.kindSummaryLabel { font-size: var(--size-sm); font-weight: 500; color: var(--text-primary); flex: 1; }
+.kindSummaryCount { font-size: var(--size-xs); color: var(--text-muted); }
+.kindSummaryAmount { font-size: var(--size-sm); font-weight: 600; color: var(--expense); white-space: nowrap; }
+
+.kindBarTrack {
+  height: 4px;
+  background: var(--bg-card-alt);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.kindBarFill {
+  height: 100%;
+  background: var(--expense);
+  opacity: 0.7;
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+/* ── 입력 폼 ── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.formLabel {
+  font-size: var(--size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.formRow {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.formRow > .formField { flex: 1; }
+
+.numberInput {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: var(--size-md);
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.numberInput:focus { border-color: var(--accent-1); }
+
+.formActions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.formActions > * { flex: 1; }
+
+/* ── PC 레이아웃 ── */
+
+@media (min-width: 1024px) {
+  .page { padding-bottom: 0; }
+
+  .mainGrid {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .leftCol {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .rightCol {
+    width: 360px;
+    flex-shrink: 0;
+  }
+
+  .cardGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+  }
+}
+
+@media (min-width: 1280px) {
+  .rightCol { width: 400px; }
+}

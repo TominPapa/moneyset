@@ -1,0 +1,123 @@
+/* OnboardingStep5Page.module.css */
+
+.heroCard {
+  background: color-mix(in srgb, var(--accent-1) 10%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--accent-1) 30%, transparent);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+}
+
+.heroLabel {
+  font-size: var(--size-sm);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-xs);
+}
+
+.heroAmount {
+  font-size: var(--size-2xl);
+  font-weight: 700;
+  color: var(--accent-1);
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.heroAmountNegative {
+  color: var(--error);
+}
+
+.heroWarning {
+  font-size: var(--size-xs);
+  color: var(--error);
+  margin: var(--space-sm) 0 0;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.cardLabel {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+}
+
+.cardValue {
+  font-size: var(--size-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.expenseValue {
+  color: var(--expense);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sectionTitle {
+  font-size: var(--size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.itemList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-card);
+}
+
+.listItem:first-child {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.listItem:last-child {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.listItemName {
+  font-size: var(--size-sm);
+  color: var(--text-primary);
+}
+
+.listItemAmount {
+  font-size: var(--size-sm);
+  color: var(--expense);
+  font-weight: 500;
+}
+
+.error {
+  font-size: var(--size-sm);
+  color: var(--error);
+  text-align: center;
+  margin: 0;
+  padding: var(--space-sm);
+  background: color-mix(in srgb, var(--error) 8%, transparent);
+  border-radius: var(--radius-sm);
+}
