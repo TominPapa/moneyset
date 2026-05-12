@@ -74,18 +74,17 @@ function effectivePayoffDate(item: Liability): string {
 }
 
 function PayoffTimeline({ liabilities }: { liabilities: Liability[] }) {
-  const active = liabilities.filter(l => l.isActive);
-  if (active.length === 0) return (
-    <p className={styles.empty}>등록된 활성 부채가 없습니다.</p>
+  if (liabilities.length === 0) return (
+    <p className={styles.empty}>등록된 부채가 없습니다.</p>
   );
 
-  const withMonths = active.filter(l => effectiveMonths(l) > 0);
+  const withMonths = liabilities.filter(l => effectiveMonths(l) > 0);
   const maxMonths  = withMonths.length > 0 ? Math.max(...withMonths.map(l => effectiveMonths(l))) : 1;
 
   // 기간 있는 부채 먼저, 없는 부채는 뒤로
   const sorted = [
     ...withMonths.sort((a, b) => effectiveMonths(a) - effectiveMonths(b)),
-    ...active.filter(l => effectiveMonths(l) === 0),
+    ...liabilities.filter(l => effectiveMonths(l) === 0),
   ];
 
   return (
@@ -301,25 +300,21 @@ export function DebtPage() {
           )}
         </div>
 
-        {/* ── 상세 분석 (supporter 전용) ── */}
+        {/* ── 상환 타임라인 (전체 공개) ── */}
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>상환 타임라인</div>
+          <PayoffTimeline liabilities={liabilities} />
+        </div>
+
+        {/* ── 부채/자산 비율 (supporter 전용) ── */}
         <div className={styles.section} style={{ position: 'relative' }}>
           <div className={styles.sectionTitle}>
-            상세 분석
+            부채 / 자산 비율
             {!isSupporter && <span className={styles.lockTag}>✦ 후원자 전용</span>}
           </div>
 
-          <div className={styles.detailGrid} style={{ opacity: isSupporter ? 1 : 0.25, pointerEvents: isSupporter ? 'auto' : 'none' }}>
-            {/* 상환 타임라인 */}
-            <div className={styles.detailCard}>
-              <div className={styles.detailCardTitle}>상환 타임라인</div>
-              <PayoffTimeline liabilities={liabilities} />
-            </div>
-
-            {/* 부채/자산 비율 */}
-            <div className={styles.detailCard}>
-              <div className={styles.detailCardTitle}>부채 / 자산 비율</div>
-              <DebtRatioGauge liabilities={liabilities} accounts={accounts} />
-            </div>
+          <div style={{ opacity: isSupporter ? 1 : 0.2, pointerEvents: isSupporter ? 'auto' : 'none' }}>
+            <DebtRatioGauge liabilities={liabilities} accounts={accounts} />
           </div>
 
           {!isSupporter && (
