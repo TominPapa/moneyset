@@ -18,6 +18,7 @@ export const ROUTES = {
   record:           '/record',
   budget:           '/budget',      // V1.5 신규
   recurring:        '/recurring',   // V1.5 신규
+  debt:             '/debt',
   safety:           '/safety',
   statsMonthly:     '/stats/monthly',
   statsAnnual:      '/stats/annual',
@@ -50,6 +51,7 @@ export const routeMeta: RouteMeta[] = [
   { path: ROUTES.record,        label: '기록',    requiresOnboarding: true, showInNav: true },
   { path: ROUTES.budget,        label: '예산',    requiresOnboarding: true, showInNav: false },
   { path: ROUTES.recurring,     label: '정기지출', requiresOnboarding: true, showInNav: false },
+  { path: ROUTES.debt,          label: '부채관리', requiresOnboarding: true, showInNav: false },
   { path: ROUTES.safety,        label: '안전도',  requiresOnboarding: true, showInNav: true },
   { path: ROUTES.statsMonthly,  label: '통계',    requiresOnboarding: true, showInNav: true },
   { path: ROUTES.settlement,    label: '공동정산', requiresOnboarding: true, showInNav: true },

@@ -34,6 +34,7 @@ import { RecurringPage }    from '../pages/recurring/RecurringPage';
 import { SafetyPage }       from '../pages/safety/SafetyPage';
 import { StatsMonthlyPage } from '../pages/stats/StatsMonthlyPage';
 import { StatsAnnualPage }  from '../pages/stats/StatsAnnualPage';
+import { DebtPage }         from '../pages/debt/DebtPage';
 import { SettlementPage }   from '../pages/settlement/SettlementPage';
 import { ResetPage }        from '../pages/reset/ResetPage';
 import { SettingsPage }     from '../pages/settings/SettingsPage';
@@ -72,6 +73,7 @@ export function AppRouter() {
           <Route path={ROUTES.record}       element={<RecordPage />} />
           <Route path={ROUTES.budget}       element={<BudgetPage />} />
           <Route path={ROUTES.recurring}    element={<RecurringPage />} />
+          <Route path={ROUTES.debt}         element={<DebtPage />} />
           <Route path={ROUTES.safety}       element={<SafetyPage />} />
           <Route path="/stats"              element={<Navigate to={ROUTES.statsMonthly} replace />} />
           <Route path={ROUTES.statsMonthly} element={<StatsMonthlyPage />} />

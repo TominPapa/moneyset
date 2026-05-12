@@ -43,6 +43,8 @@ export interface Manifest {
 
 // ─── App State (appDataFolder) ────────────────────────────────────────────────
 
+export type UserTier = 'free' | 'supporter';
+
 export interface AppState {
   currentLedgerRootFolderId: string;
   onboardingCompleted: boolean;
@@ -50,6 +52,7 @@ export interface AppState {
   localCacheVersion: number;
   lastSyncAt: string;
   installId: string;
+  userTier?: UserTier;   // 미설정 시 'free'로 취급
 }
 
 // ─── 충돌 감지 결과 ───────────────────────────────────────────────────────────

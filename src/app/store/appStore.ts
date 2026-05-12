@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import type { AppConfig, ThemeMode, Account, Liability, Transaction } from '../../domain/types';
 import { defaultAppConfig } from '../../domain/fixtures';
-import type { AppState } from '../../storage/driveAdapter';
+import type { AppState, UserTier } from '../../storage/driveAdapter';
 import { driveAdapter } from '../../storage/driveAdapterImpl';
 import { localCache } from '../../storage/localCacheImpl';
 import { saveBudgetPlan } from '../../storage/localPlanStore';
@@ -34,6 +34,10 @@ interface AppStore {
   setAccounts: (accounts: Account[]) => void;
   liabilities: Liability[];
   setLiabilities: (liabilities: Liability[]) => void;
+
+  // 사용자 티어
+  userTier: UserTier;
+  unlockSupporter: (code: string) => Promise<boolean>;
 
   // 동기화 상태
   isSyncing: boolean;
@@ -156,6 +160,22 @@ export const useAppStore = create<AppStore>((set) => ({
   loginStep: null,
   setAuthenticated: (v) => set({ isAuthenticated: v }),
 
+  userTier: 'free',
+  unlockSupporter: async (code: string) => {
+    const validCode = import.meta.env.VITE_SUPPORTER_CODE as string | undefined;
+    if (!validCode || code.trim() !== validCode.trim()) return false;
+    // AppState 업데이트
+    const cached = await localCache.getAppState();
+    if (!cached) return false;
+    const updated: AppState = { ...cached, userTier: 'supporter' };
+    await Promise.all([
+      localCache.setAppState(updated),
+      driveAdapter.writeAppState(updated),
+    ]);
+    set({ userTier: 'supporter' });
+    return true;
+  },
+
   onboardingCompleted: false,
   setOnboardingCompleted: (v) =>
     set((s) => ({
@@ -213,6 +233,7 @@ export const useAppStore = create<AppStore>((set) => ({
         accounts: cachedAccounts ?? [],
         liabilities: cachedLiabilities ?? [],
         onboardingCompleted: cachedState!.onboardingCompleted,
+        userTier: cachedState!.userTier ?? 'free',
       });
 
       // 백그라운드에서 Drive와 동기화 (UI 블로킹 없음)
@@ -287,7 +308,7 @@ export const useAppStore = create<AppStore>((set) => ({
       localCache.setLiabilities(liabilities),
     ]);
 
-    set({ isAuthenticated: true, config, onboardingCompleted, accounts, liabilities, loginStep: null });
+    set({ isAuthenticated: true, config, onboardingCompleted, accounts, liabilities, loginStep: null, userTier: driveAppState?.userTier ?? 'free' });
   },
 
   // ─── 로그아웃 ──────────────────────────────────────────────────────────────

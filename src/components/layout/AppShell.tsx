@@ -7,7 +7,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../app/routes';
 import {
   IcHome, IcList, IcBudget, IcRepeat, IcShield, IcChart,
-  IcUsers, IcCog, IcSparkle,
+  IcUsers, IcCog, IcSparkle, IcWallet,
 } from '../ui/Icons';
 import { CoachPanel } from '../coach/CoachPanel';
 import styles from './AppShell.module.css';
@@ -23,6 +23,7 @@ const SIDEBAR_NAV: NavItem[] = [
   { path: ROUTES.record,       label: '기록',     Icon: IcList   },
   { path: ROUTES.budget,       label: '예산',     Icon: IcBudget },
   { path: ROUTES.recurring,    label: '정기지출', Icon: IcRepeat },
+  { path: ROUTES.debt,         label: '부채관리', Icon: IcWallet },
   { path: ROUTES.safety,       label: '안전도',   Icon: IcShield },
   { path: ROUTES.statsMonthly, label: '통계',     Icon: IcChart  },
   { path: ROUTES.settlement,   label: '공동정산', Icon: IcUsers  },
