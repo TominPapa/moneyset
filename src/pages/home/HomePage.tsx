@@ -443,6 +443,17 @@ export function HomePage() {
   const netBalance = totalIncome - totalExpense;
   const todayLimitPct = dailyLimit > 0 ? Math.min(100, Math.round((todayExpense / dailyLimit) * 100)) : 0;
 
+  // ─── 저축 목표 트래커 ────────────────────────────────────────────────────────
+  const savingsGoal      = config.savingsTargetDefault ?? 0;
+  const currentSavings   = Math.max(0, netBalance);
+  const achievePct       = savingsGoal > 0 ? Math.min(100, Math.round((currentSavings / savingsGoal) * 100)) : 0;
+  const remaining        = Math.max(0, savingsGoal - currentSavings);
+  const dailySavingRate  = todayDay > 0 ? currentSavings / todayDay : 0;
+  const projected        = Math.round(dailySavingRate * daysInMonth);
+  const isOnTrack        = savingsGoal <= 0 || projected >= savingsGoal;
+  const daysLeft         = daysInMonth - todayDay;
+  const neededPerDay     = daysLeft > 0 && remaining > 0 ? Math.ceil(remaining / daysLeft) : 0;
+
   return (
     <div className={styles.page}>
 
@@ -747,6 +758,93 @@ export function HomePage() {
                   <p style={{ fontSize: 11, color: 'var(--text-2)', textAlign: 'center', marginTop: 6 }}>외 {subscriptions.length - 4}개 더...</p>
                 )}
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* ══ 저축 목표 달성 트래커 ══ */}
+        <div className={styles.savingsCard}>
+          {/* 헤더 */}
+          <div className={styles.savingsHeader}>
+            <div>
+              <div className={styles.cardLabel}>이번 달 저축 목표</div>
+              <div className={styles.savingsTitle}>
+                {savingsGoal > 0 ? fmt(savingsGoal) : '목표 미설정'}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+              <div className={`${styles.savingsBadge} ${achievePct >= 100 ? styles.savingsBadgeDone : isOnTrack ? styles.savingsBadgeGood : styles.savingsBadgeWarn}`}>
+                {achievePct >= 100 ? '🎉 목표 달성!' : isOnTrack ? `📈 달성 가능` : `⚡ 페이스 부족`}
+              </div>
+              {daysLeft > 0 && <div style={{ fontSize: 11, color: 'var(--text-2)' }}>월말까지 {daysLeft}일 남음</div>}
+            </div>
+          </div>
+
+          {/* 진행 바 */}
+          <div className={styles.savingsBarWrap}>
+            <div className={styles.savingsBarTrack}>
+              <div
+                className={styles.savingsBarFill}
+                style={{
+                  width: `${achievePct}%`,
+                  background: achievePct >= 100
+                    ? 'var(--mint-500)'
+                    : isOnTrack
+                    ? 'linear-gradient(90deg, var(--mint-600), var(--mint-500))'
+                    : 'linear-gradient(90deg, var(--gold-500), #F4A060)',
+                }}
+              />
+              {/* 예상 달성선 */}
+              {savingsGoal > 0 && projected > 0 && projected < savingsGoal && (
+                <div
+                  className={styles.savingsProjectedLine}
+                  style={{ left: `${Math.min(98, Math.round((projected / savingsGoal) * 100))}%` }}
+                />
+              )}
+            </div>
+            <div className={styles.savingsBarLabels}>
+              <span>0원</span>
+              {savingsGoal > 0 && <span style={{ color: isOnTrack ? 'var(--mint-300)' : 'var(--gold-300)' }}>목표 {fmt(savingsGoal)}</span>}
+            </div>
+          </div>
+
+          {/* 3개 스탯 */}
+          <div className={styles.savingsStats}>
+            <div className={styles.savingsStat}>
+              <div className={styles.savingsStatLabel}>현재 저축</div>
+              <div className={styles.savingsStatValue} style={{ color: 'var(--mint-300)' }}>
+                {fmt(currentSavings)}
+              </div>
+              <div className={styles.savingsStatHint}>{achievePct}% 달성</div>
+            </div>
+            <div className={styles.savingsDivider} />
+            <div className={styles.savingsStat}>
+              <div className={styles.savingsStatLabel}>남은 금액</div>
+              <div className={styles.savingsStatValue} style={{ color: remaining > 0 ? 'var(--text-1)' : 'var(--mint-300)' }}>
+                {remaining > 0 ? fmt(remaining) : '달성 완료'}
+              </div>
+              <div className={styles.savingsStatHint}>{remaining > 0 ? `하루 ${fmtShort(neededPerDay)}원씩` : '🎉'}</div>
+            </div>
+            <div className={styles.savingsDivider} />
+            <div className={styles.savingsStat}>
+              <div className={styles.savingsStatLabel}>이달 예상 저축</div>
+              <div className={styles.savingsStatValue} style={{ color: isOnTrack ? 'var(--mint-300)' : 'var(--gold-300)' }}>
+                {projected > 0 ? fmt(projected) : '—'}
+              </div>
+              <div className={styles.savingsStatHint}>현재 페이스 기준</div>
+            </div>
+          </div>
+
+          {/* 하단 인사이트 */}
+          <div className={styles.savingsInsight}>
+            {savingsGoal <= 0 ? (
+              <><IcSparkle size={13}/> 저축 목표를 설정하면 달성률을 추적할 수 있어요.</>
+            ) : achievePct >= 100 ? (
+              <><IcCheck size={13}/> 이번 달 저축 목표를 달성했어요! 초과 저축 {fmt(currentSavings - savingsGoal)}</>
+            ) : isOnTrack ? (
+              <><IcCheck size={13}/> 현재 페이스면 월말까지 <strong style={{ color: 'var(--mint-300)' }}>{fmt(projected)}</strong> 저축 예상 — 목표 달성 가능해요!</>
+            ) : (
+              <><IcFlame size={13}/> 목표 달성을 위해 하루 <strong style={{ color: 'var(--gold-300)' }}>{fmtShort(neededPerDay)}원</strong>씩 추가 저축이 필요해요.</>
             )}
           </div>
         </div>
