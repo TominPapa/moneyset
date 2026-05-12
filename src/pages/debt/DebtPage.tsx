@@ -66,32 +66,51 @@ function LockedSection({ onUnlock }: { onUnlock: () => void }) {
 
 // ─── 상환 타임라인 (supporter) ────────────────────────────────────────────────
 
+function effectiveMonths(item: Liability): number {
+  if (item.remainingMonths && item.remainingMonths > 0) return item.remainingMonths;
+  if (item.totalBalance && item.monthlyAmount > 0) return Math.ceil(item.totalBalance / item.monthlyAmount);
+  return 0;
+}
+
+function effectivePayoffDate(item: Liability): string {
+  const months = effectiveMonths(item);
+  if (months <= 0) return '—';
+  const d = new Date();
+  d.setMonth(d.getMonth() + months);
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+}
+
 function PayoffTimeline({ liabilities }: { liabilities: Liability[] }) {
-  const active = liabilities.filter(l => l.isActive && l.remainingMonths && l.remainingMonths > 0);
+  const active = liabilities.filter(l => l.isActive && effectiveMonths(l) > 0);
   if (active.length === 0) return (
-    <p className={styles.empty}>상환 일정이 있는 부채가 없습니다.</p>
+    <p className={styles.empty}>잔여 원금 또는 상환 기간을 등록하면 타임라인이 표시됩니다.</p>
   );
 
-  const maxMonths = Math.max(...active.map(l => l.remainingMonths ?? 0));
+  const maxMonths = Math.max(...active.map(l => effectiveMonths(l)));
 
   return (
     <div className={styles.timelineList}>
       {active
-        .sort((a, b) => (a.remainingMonths ?? 0) - (b.remainingMonths ?? 0))
+        .sort((a, b) => effectiveMonths(a) - effectiveMonths(b))
         .map(item => {
-          const pct = maxMonths > 0 ? ((item.remainingMonths ?? 0) / maxMonths) * 100 : 0;
-          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+          const months = effectiveMonths(item);
+          const pct    = maxMonths > 0 ? (months / maxMonths) * 100 : 0;
+          const color  = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+          const isCalc = !item.remainingMonths && item.totalBalance; // 자동 계산된 경우
           return (
             <div key={item.id} className={styles.timelineItem}>
               <div className={styles.timelineLabel}>
                 <span style={{ color }}>{item.name}</span>
-                <span className={styles.timelineDate}>{payoffDate(item)} 완납</span>
+                <span className={styles.timelineDate}>
+                  {effectivePayoffDate(item)} 완납
+                  {isCalc && <span style={{ color: 'var(--text-3)', fontSize: 10, marginLeft: 4 }}>(추정)</span>}
+                </span>
               </div>
               <div className={styles.timelineTrack}>
                 <div className={styles.timelineFill} style={{ width: `${pct}%`, background: color }} />
               </div>
               <div className={styles.timelineMeta}>
-                <span>{item.remainingMonths}개월 남음</span>
+                <span>{months}개월 남음</span>
                 {item.totalBalance && <span>잔여 {fmtShort(item.totalBalance)}원</span>}
               </div>
             </div>
@@ -263,14 +282,14 @@ export function DebtPage() {
                         {item.remainingMonths && <span>{item.remainingMonths}개월 남음</span>}
                         <span>납입일 {item.dueDay}일</span>
                       </div>
-                      {item.remainingMonths && item.monthlyAmount && (
+                      {effectiveMonths(item) > 0 && (
                         <div className={styles.debtBarWrap}>
                           <div className={styles.debtBarTrack}>
                             <div className={styles.debtBarFill}
-                              style={{ width: `${100 - pct}%`, background: color }} />
+                              style={{ width: `${100 - repayPct(item)}%`, background: color }} />
                           </div>
                           <span className={styles.debtBarLabel}>
-                            {payoffDate(item)} 완납 예정
+                            {effectivePayoffDate(item)} 완납 예정
                           </span>
                         </div>
                       )}
