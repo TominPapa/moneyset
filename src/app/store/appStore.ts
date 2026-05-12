@@ -163,7 +163,7 @@ export const useAppStore = create<AppStore>((set) => ({
   userTier: 'free',
   unlockSupporter: async (code: string) => {
     const validCode = import.meta.env.VITE_SUPPORTER_CODE as string | undefined;
-    if (!validCode || code.trim() !== validCode.trim()) return false;
+    if (!validCode || code.trim().toUpperCase() !== validCode.trim().toUpperCase()) return false;
     // AppState 업데이트
     const cached = await localCache.getAppState();
     if (!cached) return false;

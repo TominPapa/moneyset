@@ -324,7 +324,7 @@ export function DebtPage() {
               type="text"
               placeholder="코드를 입력하세요"
               value={unlockCode}
-              onChange={e => { setUnlockCode(e.target.value); setUnlockError(''); }}
+              onChange={e => { setUnlockCode(e.target.value.toUpperCase()); setUnlockError(''); }}
               onKeyDown={e => e.key === 'Enter' && handleUnlock()}
               autoFocus
             />
