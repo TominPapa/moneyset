@@ -162,8 +162,9 @@ export const useAppStore = create<AppStore>((set) => ({
 
   userTier: 'free',
   unlockSupporter: async (code: string) => {
-    const validCode = import.meta.env.VITE_SUPPORTER_CODE as string | undefined;
-    if (!validCode || code.trim().toUpperCase() !== validCode.trim().toUpperCase()) return false;
+    // 후원자 코드 검증 (base64 인코딩으로 소스 직접 노출 방지)
+    const _v = atob('TU9ORVlTRVQyMDI1'); // MONEYSET2025
+    if (code.trim().toUpperCase() !== _v) return false;
     // AppState 업데이트
     const cached = await localCache.getAppState();
     if (!cached) return false;
