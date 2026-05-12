@@ -29,13 +29,6 @@ const LIABILITY_KIND_COLORS: Record<string, string> = {
   credit_card_recurring: '#C9A6F0',
 };
 
-function payoffDate(item: Liability): string {
-  if (!item.remainingMonths || item.remainingMonths <= 0) return '—';
-  const d = new Date();
-  d.setMonth(d.getMonth() + item.remainingMonths);
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
-}
-
 function repayPct(item: Liability): number {
   if (!item.totalBalance || !item.remainingMonths || !item.monthlyAmount) return 0;
   const originalTotal = item.totalBalance + item.monthlyAmount * item.remainingMonths;
@@ -81,41 +74,49 @@ function effectivePayoffDate(item: Liability): string {
 }
 
 function PayoffTimeline({ liabilities }: { liabilities: Liability[] }) {
-  const active = liabilities.filter(l => l.isActive && effectiveMonths(l) > 0);
+  const active = liabilities.filter(l => l.isActive);
   if (active.length === 0) return (
-    <p className={styles.empty}>잔여 원금 또는 상환 기간을 등록하면 타임라인이 표시됩니다.</p>
+    <p className={styles.empty}>등록된 활성 부채가 없습니다.</p>
   );
 
-  const maxMonths = Math.max(...active.map(l => effectiveMonths(l)));
+  const withMonths = active.filter(l => effectiveMonths(l) > 0);
+  const maxMonths  = withMonths.length > 0 ? Math.max(...withMonths.map(l => effectiveMonths(l))) : 1;
+
+  // 기간 있는 부채 먼저, 없는 부채는 뒤로
+  const sorted = [
+    ...withMonths.sort((a, b) => effectiveMonths(a) - effectiveMonths(b)),
+    ...active.filter(l => effectiveMonths(l) === 0),
+  ];
 
   return (
     <div className={styles.timelineList}>
-      {active
-        .sort((a, b) => effectiveMonths(a) - effectiveMonths(b))
-        .map(item => {
-          const months = effectiveMonths(item);
-          const pct    = maxMonths > 0 ? (months / maxMonths) * 100 : 0;
-          const color  = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
-          const isCalc = !item.remainingMonths && item.totalBalance; // 자동 계산된 경우
-          return (
-            <div key={item.id} className={styles.timelineItem}>
-              <div className={styles.timelineLabel}>
-                <span style={{ color }}>{item.name}</span>
-                <span className={styles.timelineDate}>
-                  {effectivePayoffDate(item)} 완납
-                  {isCalc && <span style={{ color: 'var(--text-3)', fontSize: 10, marginLeft: 4 }}>(추정)</span>}
-                </span>
-              </div>
-              <div className={styles.timelineTrack}>
-                <div className={styles.timelineFill} style={{ width: `${pct}%`, background: color }} />
-              </div>
-              <div className={styles.timelineMeta}>
-                <span>{months}개월 남음</span>
-                {item.totalBalance && <span>잔여 {fmtShort(item.totalBalance)}원</span>}
-              </div>
+      {sorted.map(item => {
+        const months = effectiveMonths(item);
+        const pct    = months > 0 ? (months / maxMonths) * 100 : 15; // 최소 15% 폭 표시
+        const color  = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+        const isCalc = !item.remainingMonths && item.totalBalance;
+        const noDate = months === 0;
+        return (
+          <div key={item.id} className={styles.timelineItem}>
+            <div className={styles.timelineLabel}>
+              <span style={{ color }}>{item.name}</span>
+              <span className={styles.timelineDate}>
+                {noDate
+                  ? <span style={{ color: 'var(--text-3)' }}>납입 중</span>
+                  : <>{effectivePayoffDate(item)} 완납{isCalc && <span style={{ color: 'var(--text-3)', fontSize: 10, marginLeft: 4 }}>(추정)</span>}</>
+                }
+              </span>
             </div>
-          );
-        })}
+            <div className={styles.timelineTrack}>
+              <div className={styles.timelineFill} style={{ width: `${pct}%`, background: noDate ? 'var(--bg-4)' : color, opacity: noDate ? 0.5 : 1 }} />
+            </div>
+            <div className={styles.timelineMeta}>
+              {months > 0 ? <span>{months}개월 남음</span> : <span style={{ color: 'var(--text-3)', fontSize: 11 }}>잔여 기간 미설정</span>}
+              {item.totalBalance && <span>잔여 {fmtShort(item.totalBalance)}원</span>}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -244,8 +245,8 @@ export function DebtPage() {
               {loanCount === 0 && installCount === 0 && (active.length > 0 ? `${active.length}건` : '없음')}
             </div>
             <div className={styles.summaryHint}>
-              {active.filter(l => l.remainingMonths).length > 0
-                ? `최장 ${Math.max(...active.filter(l=>l.remainingMonths).map(l=>l.remainingMonths!))}개월 남음`
+              {active.filter(l => effectiveMonths(l) > 0).length > 0
+                ? `최장 ${Math.max(...active.filter(l => effectiveMonths(l) > 0).map(l => effectiveMonths(l)))}개월 남음`
                 : '상환 기간 미설정'}
             </div>
           </div>
@@ -265,7 +266,6 @@ export function DebtPage() {
             <div className={styles.debtList}>
               {active.map(item => {
                 const color  = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
-                const pct    = repayPct(item);
                 return (
                   <div key={item.id} className={styles.debtItem}>
                     <div className={styles.debtKindDot} style={{ background: color }} />
