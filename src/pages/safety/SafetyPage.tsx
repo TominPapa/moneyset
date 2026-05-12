@@ -13,6 +13,170 @@ import {
 } from '../../components/ui/Icons';
 import styles from './SafetyPage.module.css';
 
+// ─── 공유 카드 생성 (Canvas) ──────────────────────────────────────────────────
+
+const LEVEL_HEX: Record<string, string> = {
+  very_safe: '#3FD6A4',
+  safe:      '#67DDB4',
+  warning:   '#D9B26A',
+  risk:      '#F47272',
+  critical:  '#E05555',
+};
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+interface ShareCardData {
+  score: number;
+  level: string;
+  levelLabel: string;
+  month: string;               // "2025-05"
+  expenseRatio: number;        // 0~100
+  fixedRatio: number;          // 0~100
+  emergencyMonths: number;
+}
+
+function generateShareCard(data: ShareCardData) {
+  const W = 800; const H = 450;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+  const accent = LEVEL_HEX[data.level] ?? '#3FD6A4';
+  const [y, m] = data.month.split('-');
+  const monthLabel = `${y}년 ${Number(m)}월`;
+
+  // ── 배경 ──────────────────────────────────────────────────────────────────
+  ctx.fillStyle = '#0D1410';
+  ctx.fillRect(0, 0, W, H);
+
+  const bg = ctx.createRadialGradient(W, 0, 0, W, 0, 620);
+  bg.addColorStop(0, `${accent}28`);
+  bg.addColorStop(1, 'transparent');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // ── 테두리 ────────────────────────────────────────────────────────────────
+  roundRect(ctx, 1, 1, W - 2, H - 2, 24);
+  ctx.strokeStyle = `${accent}44`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // ── 헤더: 로고 + 날짜 ──────────────────────────────────────────────────────
+  ctx.fillStyle = accent;
+  ctx.font = 'bold 18px system-ui, -apple-system, sans-serif';
+  ctx.fillText('💰 머니셋', 44, 56);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '600 13px system-ui, -apple-system, sans-serif';
+  ctx.fillText(`${monthLabel} 재무 안전도`, 44, 80);
+
+  // 오른쪽: 등급 뱃지
+  const badgeX = W - 44 - 120;
+  roundRect(ctx, badgeX, 36, 120, 38, 10);
+  ctx.fillStyle = `${accent}22`;
+  ctx.fill();
+  roundRect(ctx, badgeX, 36, 120, 38, 10);
+  ctx.strokeStyle = `${accent}66`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = accent;
+  ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(data.levelLabel, badgeX + 60, 62);
+  ctx.textAlign = 'left';
+
+  // ── 중앙 구분선 ───────────────────────────────────────────────────────────
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(44, 104); ctx.lineTo(W - 44, 104);
+  ctx.stroke();
+
+  // ── 왼쪽: 점수 ────────────────────────────────────────────────────────────
+  const scoreStr = data.score >= 200 ? '200+' : String(Math.round(data.score));
+  ctx.fillStyle = accent;
+  ctx.font = `bold 120px system-ui, -apple-system, sans-serif`;
+  ctx.fillText(scoreStr, 44, 250);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '600 14px system-ui, -apple-system, sans-serif';
+  ctx.fillText('SAFETY SCORE · 200점 만점', 44, 278);
+
+  // ── 가운데 구분선 ─────────────────────────────────────────────────────────
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(320, 116); ctx.lineTo(320, H - 60);
+  ctx.stroke();
+
+  // ── 오른쪽: 메트릭 3개 ────────────────────────────────────────────────────
+  const metX = 356;
+  const metrics = [
+    { label: '이번 달 지출', value: `${Math.round(data.expenseRatio)}%`, barRatio: data.expenseRatio / 100 },
+    { label: '고정지출 비율', value: `${Math.round(data.fixedRatio)}%`,   barRatio: data.fixedRatio / 100 },
+    { label: '비상금 여유',  value: `${data.emergencyMonths}개월`,        barRatio: Math.min(1, data.emergencyMonths / 12) },
+  ];
+
+  metrics.forEach((met, i) => {
+    const gy = 140 + i * 90;
+    // 레이블
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '600 12px system-ui, -apple-system, sans-serif';
+    ctx.fillText(met.label, metX, gy);
+    // 값
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 28px system-ui, -apple-system, sans-serif';
+    ctx.fillText(met.value, metX, gy + 34);
+    // 바 배경
+    const barW = 380; const barH = 6; const barY = gy + 46;
+    roundRect(ctx, metX, barY, barW, barH, 3);
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fill();
+    // 바 채움
+    const fillW = Math.max(4, barW * Math.min(1, met.barRatio));
+    roundRect(ctx, metX, barY, fillW, barH, 3);
+    ctx.fillStyle = accent;
+    ctx.fill();
+  });
+
+  // ── 하단 구분선 + URL ──────────────────────────────────────────────────────
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(44, H - 56); ctx.lineTo(W - 44, H - 56);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.font = '500 13px system-ui, -apple-system, sans-serif';
+  ctx.fillText('moneyset.vercel.app', 44, H - 28);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.font = '500 12px system-ui, -apple-system, sans-serif';
+  ctx.fillText('Google Drive에 안전하게 저장되는 재무 안전도 가계부', W - 44, H - 28);
+  ctx.textAlign = 'left';
+
+  // ── 다운로드 ──────────────────────────────────────────────────────────────
+  const link = document.createElement('a');
+  link.download = `머니셋_안전도_${data.month}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
 // ─── utils ────────────────────────────────────────────────────────────────────
 
 function fmt(n: number): string { return n.toLocaleString('ko-KR') + '원'; }
@@ -79,6 +243,26 @@ export function SafetyPage() {
     ? Math.min(1, summary.livingSpentSoFar / summary.monthlyBudgetBase) : 0;
   const weeklySpent = safetyInput.weeklyLivingSpent;
 
+  // 공유 카드 핸들러
+  function handleShareCard() {
+    const expenseRatio = summary.monthlyBudgetBase > 0
+      ? Math.round((summary.livingSpentSoFar / summary.monthlyBudgetBase) * 100) : 0;
+    const fixedRatio = income > 0
+      ? Math.round((fixedTotal / income) * 100) : 0;
+    const emergencyMonths = fixedTotal > 0
+      ? Math.floor(summary.monthlySpendableRemaining / fixedTotal) : 0;
+
+    generateShareCard({
+      score: scoreNum,
+      level: summary.safetyLevel,
+      levelLabel: safetyLabel(summary.safetyLevel),
+      month: activeMonth,
+      expenseRatio,
+      fixedRatio,
+      emergencyMonths: Math.max(0, emergencyMonths),
+    });
+  }
+
   // Category top 5
   const catSpendMap = new Map<string, number>();
   for (const tx of transactions) {
@@ -111,7 +295,9 @@ export function SafetyPage() {
           <button className={styles.monthBtn} onClick={() => setActiveMonth(nextYM(activeMonth))} type="button"><IcChevronRight size={16}/></button>
         </div>
         <div className={styles.topActions}>
-          <button className={styles.actionBtn} type="button"><IcDownload size={14}/> 리포트</button>
+          <button className={styles.actionBtn} type="button" onClick={handleShareCard}>
+            <IcDownload size={14}/> 안전도 카드 저장
+          </button>
           <button className={styles.actionBtn} type="button"><IcSparkle size={14}/> 개선 제안</button>
         </div>
       </div>
