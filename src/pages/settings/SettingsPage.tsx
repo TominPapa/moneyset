@@ -892,9 +892,8 @@ export function SettingsPage() {
   }
 
   const themeOptions: { value: ThemeMode; label: string; desc: string }[] = [
-    { value: 'ivory_light', label: '☀️ 라이트', desc: '아이보리 밝은 테마' },
     { value: 'noir_black',  label: '🌙 다크',   desc: '누아르 어두운 테마' },
-    { value: 'system',      label: '⚙️ 시스템',  desc: '기기 설정에 따름'  },
+    { value: 'ivory_light', label: '☀️ 라이트', desc: '아이보리 밝은 테마' },
   ];
 
   const syncTimeStr = lastSyncedAt

@@ -67,6 +67,11 @@
   --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 20px;
   --s-6: 24px; --s-7: 32px; --s-8: 40px; --s-9: 56px;
 
+  /* ── Hero card (SafetyPage) ── */
+  --hero-bg-start: #0E1311;
+  --hero-bg-end:   #151A18;
+  --hero-tint:     rgba(63,214,164,0.16);
+
   /* ── Shadows ── */
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.2);
@@ -171,6 +176,11 @@
   --safe-3: #AA8818;
   --safe-4: #B06020;
   --safe-5: #CC3030;
+
+  /* ── Hero card (SafetyPage) 라이트 ── */
+  --hero-bg-start: var(--bg-2);
+  --hero-bg-end:   var(--bg-3);
+  --hero-tint:     rgba(26,158,110,0.09);
 
   /* ── Shadows (라이트 모드용) ── */
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.10);

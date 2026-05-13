@@ -62,8 +62,8 @@
   border-radius: 28px; padding: 40px;
   position: relative; overflow: hidden;
   background:
-    radial-gradient(80% 120% at 80% 0%, rgba(63,214,164,0.16) 0%, transparent 55%),
-    linear-gradient(180deg, #0E1311 0%, #151A18 100%);
+    radial-gradient(80% 120% at 80% 0%, var(--hero-tint) 0%, transparent 55%),
+    linear-gradient(180deg, var(--hero-bg-start) 0%, var(--hero-bg-end) 100%);
   border: 1px solid var(--line);
 }
 
