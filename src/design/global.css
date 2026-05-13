@@ -143,10 +143,10 @@
   --line-strong: rgba(0,0,0,0.18);
 
   /* ── Text ── */
-  --text-0: #0C0C08;
-  --text-1: #1E1E14;
-  --text-2: #3A3A2E;
-  --text-3: #5C5C4E;
+  --text-0: #080808;
+  --text-1: #1A1A1A;
+  --text-2: #383838;
+  --text-3: #5A5A5A;
 
   /* ── Brand: Mint (라이트에서 충분한 대비 유지) ── */
   --mint-100: #C0EFD8;
