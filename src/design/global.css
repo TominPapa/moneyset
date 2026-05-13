@@ -121,6 +121,96 @@
   --size-2xl: 2rem;
 }
 
+/* ══════════════════════════════════════════════
+   Ivory Light 테마 — [data-theme="ivory_light"]
+   ThemeProvider가 html에 data-theme 어트리뷰트를 세팅하면
+   아래 블록이 :root 기본값을 덮어쓴다 (specificity 우세)
+══════════════════════════════════════════════ */
+
+[data-theme="ivory_light"] {
+  /* ── Canvas / Surface ── */
+  --bg-0: #F0EDE6;
+  --bg-1: #E9E5DC;
+  --bg-2: #FFFFFF;
+  --bg-3: #F6F3EE;
+  --bg-4: #EBE8E0;
+  --line: rgba(0,0,0,0.07);
+  --line-strong: rgba(0,0,0,0.14);
+
+  /* ── Text ── */
+  --text-0: #1A1A18;
+  --text-1: #3A3A36;
+  --text-2: #6A6A64;
+  --text-3: #A4A49C;
+
+  /* ── Brand: Mint (라이트에서 충분한 대비 유지) ── */
+  --mint-100: #C0EFD8;
+  --mint-300: #26B482;
+  --mint-500: #1A9E6E;
+  --mint-600: #158059;
+  --mint-700: #0F6044;
+  --mint-ink: #FFFFFF;
+
+  /* ── Gold (라이트에서 충분한 대비 유지) ── */
+  --gold-300: #BF8C08;
+  --gold-500: #9A7006;
+  --gold-600: #785604;
+
+  /* ── Semantic ── */
+  --danger: #CC3333;
+  --danger-soft: rgba(204,51,51,0.09);
+  --warn: #B07820;
+  --warn-soft: rgba(176,120,32,0.09);
+  --ok: var(--mint-500);
+  --ok-soft: rgba(26,158,110,0.09);
+  --info: #2A6EC0;
+
+  /* ── Safety gradient band ── */
+  --safe-1: #1A9E6E;
+  --safe-2: #6E9A18;
+  --safe-3: #AA8818;
+  --safe-4: #B06020;
+  --safe-5: #CC3030;
+
+  /* ── Shadows (라이트 모드용) ── */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.10);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.09), 0 1px 3px rgba(0,0,0,0.07);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,0.13), 0 2px 10px rgba(0,0,0,0.09);
+  --shadow-mint: 0 0 40px rgba(26,158,110,0.14);
+  --shadow-gold: 0 0 30px rgba(154,112,6,0.12);
+
+  /* ── Legacy alias 재정의 ── */
+  --bg-base:     var(--bg-0);
+  --bg-card:     var(--bg-2);
+  --bg-card-alt: var(--bg-3);
+  --text-primary:   var(--text-0);
+  --text-secondary: var(--text-1);
+  --text-muted:     var(--text-2);
+  --accent-1:    var(--mint-500);
+  --accent-2:    var(--mint-300);
+  --accent-3:    var(--gold-500);
+  --border:      var(--line);
+  --divider:     var(--line);
+  --expense:     var(--danger);
+  --income:      var(--mint-500);
+  --success:     var(--mint-500);
+  --error:       var(--danger);
+  --warning-color: var(--warn);
+  --safety-very-safe: var(--safe-1);
+  --safety-safe:      var(--safe-2);
+  --safety-warning:   var(--safe-3);
+  --safety-risk:      var(--safe-4);
+  --safety-critical:  var(--safe-5);
+}
+
+/* 라이트 모드 스크롤바 */
+[data-theme="ivory_light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.14);
+}
+[data-theme="ivory_light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.24);
+}
+
 html, body, #root {
   height: 100%;
   width: 100%;
