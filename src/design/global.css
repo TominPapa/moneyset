@@ -134,13 +134,13 @@
 
 [data-theme="ivory_light"] {
   /* ── Canvas / Surface ── */
-  --bg-0: #E8E4DB;
-  --bg-1: #EDE9E1;
-  --bg-2: #F8F6F1;
-  --bg-3: #F0EDE7;
-  --bg-4: #E4E0D7;
-  --line: rgba(0,0,0,0.07);
-  --line-strong: rgba(0,0,0,0.13);
+  --bg-0: #CEC9BE;
+  --bg-1: #D6D1C6;
+  --bg-2: #E2DDD2;
+  --bg-3: #D9D4C9;
+  --bg-4: #C8C3B8;
+  --line: rgba(0,0,0,0.09);
+  --line-strong: rgba(0,0,0,0.17);
 
   /* ── Text ── */
   --text-0: #1A1A18;
@@ -179,8 +179,8 @@
 
   /* ── Hero card (SafetyPage) 라이트 ── */
   --hero-bg-start: var(--bg-2);
-  --hero-bg-end:   var(--bg-3);
-  --hero-tint:     rgba(26,158,110,0.09);
+  --hero-bg-end:   var(--bg-0);
+  --hero-tint:     rgba(26,158,110,0.07);
 
   /* ── Shadows (라이트 모드용) ── */
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.10);
