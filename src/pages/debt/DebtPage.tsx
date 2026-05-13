@@ -71,52 +71,92 @@ function PayoffTimeline({ liabilities }: { liabilities: Liability[] }) {
     <p className={styles.empty}>등록된 부채가 없습니다.</p>
   );
 
-  const withMonths = liabilities.filter(l => effectiveMonths(l) > 0);
+  const now = new Date();
 
-  // 기간 있는 부채 먼저(짧은 순), 없는 부채는 뒤로
-  const sorted = [
-    ...withMonths.sort((a, b) => effectiveMonths(a) - effectiveMonths(b)),
-    ...liabilities.filter(l => effectiveMonths(l) === 0),
-  ];
+  const items = liabilities
+    .map(l => ({ ...l, months: effectiveMonths(l), isCalc: !l.remainingMonths && !!l.totalBalance }))
+    .sort((a, b) => a.months - b.months);
+
+  const maxMonths = Math.max(...items.map(i => i.months), 12);
+
+  // x축 연도 레이블
+  const maxYears  = Math.ceil(maxMonths / 12);
+  const yearStep  = maxYears <= 3 ? 1 : maxYears <= 10 ? 2 : maxYears <= 20 ? 5 : 10;
+  const axisYears: { label: string; pct: number }[] = [];
+  for (let y = yearStep; y <= maxYears; y += yearStep) {
+    axisYears.push({ label: String(now.getFullYear() + y), pct: Math.min((y * 12 / maxMonths) * 100, 100) });
+  }
+
+  // 가장 빠른 완납 부채
+  const firstPayoff = items.find(i => i.months > 0);
 
   return (
-    <div className={styles.timelineList}>
-      {sorted.map(item => {
-        const months = effectiveMonths(item);
-        const color  = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
-        const isCalc = !item.remainingMonths && item.totalBalance;
-        const noDate = months === 0;
-        return (
-          <div key={item.id} className={styles.timelineCard}>
-            {/* 왼쪽 컬러 바 */}
-            <div className={styles.timelineAccent} style={{ background: color }} />
-            <div className={styles.timelineBody}>
-              <div className={styles.timelineRow}>
-                <span className={styles.timelineName} style={{ color }}>{item.name}</span>
-                <span className={styles.timelineKind}>{LIABILITY_KIND_LABELS[item.kind] ?? item.kind}</span>
+    <div className={styles.ganttWrap}>
+      {/* 첫 완납 하이라이트 */}
+      {firstPayoff && (
+        <div className={styles.ganttBadge}>
+          <span className={styles.ganttBadgeIcon}>🎯</span>
+          <span>
+            가장 빠른 완납 —{' '}
+            <strong style={{ color: LIABILITY_KIND_COLORS[firstPayoff.kind] ?? 'var(--text-0)' }}>
+              {firstPayoff.name}
+            </strong>
+            {' '}· {effectivePayoffDate(firstPayoff)}
+            <span style={{ color: 'var(--text-3)', marginLeft: 6 }}>({firstPayoff.months}개월 후)</span>
+          </span>
+        </div>
+      )}
+
+      {/* 간트 차트 */}
+      <div className={styles.ganttChart}>
+        {items.map(item => {
+          const color    = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+          const widthPct = item.months > 0 ? Math.max((item.months / maxMonths) * 100, 1.5) : 1.5;
+          const shortBar = widthPct < 18;
+
+          const pd = new Date();
+          pd.setMonth(pd.getMonth() + item.months);
+          const endLabel = item.months > 0
+            ? `${pd.getFullYear()}.${String(pd.getMonth() + 1).padStart(2, '0')}${item.isCalc ? ' *' : ''}`
+            : '미설정';
+
+          return (
+            <div key={item.id} className={styles.ganttRow}>
+              <div className={styles.ganttName} style={{ color }}>{item.name}</div>
+              <div className={styles.ganttTrack}>
+                <div
+                  className={styles.ganttBar}
+                  style={{ width: `${widthPct}%`, background: `linear-gradient(90deg, ${color}55, ${color})`, borderRight: `2px solid ${color}` }}
+                />
+                <span
+                  className={styles.ganttEndLabel}
+                  style={shortBar
+                    ? { left: `calc(${widthPct}% + 6px)`, color: 'var(--text-2)' }
+                    : { right: 6, color: '#fff' }
+                  }
+                >
+                  {endLabel}
+                </span>
               </div>
-              <div className={styles.timelineRow} style={{ marginTop: 8 }}>
-                {noDate ? (
-                  <span className={styles.timelineNoDate}>상환 기간 미설정</span>
-                ) : (
-                  <>
-                    <span className={styles.timelineMonths}>{months}개월 후 완납</span>
-                    <span className={styles.timelineDateBadge}>
-                      {effectivePayoffDate(item)}
-                      {isCalc && <span style={{ color: 'var(--text-3)', fontSize: 10, marginLeft: 4 }}>(추정)</span>}
-                    </span>
-                  </>
-                )}
+              <div className={styles.ganttMonths}>
+                {item.months > 0 ? `${item.months}개월` : '—'}
               </div>
-              {item.totalBalance && (
-                <div className={styles.timelineBalance}>
-                  잔여 원금 <strong>{fmt(item.totalBalance)}</strong>
-                </div>
-              )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+
+        {/* x축 */}
+        <div className={styles.ganttAxis}>
+          <span className={styles.ganttAxisNow}>지금</span>
+          {axisYears.map(({ label, pct }) => (
+            <span key={label} className={styles.ganttAxisYear} style={{ left: `${pct}%` }}>{label}</span>
+          ))}
+        </div>
+      </div>
+
+      {items.some(i => i.isCalc) && (
+        <p className={styles.ganttNote}>* 잔여원금 ÷ 월납입액 기준 추정값</p>
+      )}
     </div>
   );
 }

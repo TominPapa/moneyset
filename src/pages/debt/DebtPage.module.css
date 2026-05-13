@@ -120,45 +120,61 @@
   text-transform: uppercase; letter-spacing: 0.08em;
 }
 
-/* ── 타임라인 ── */
-.timelineList { display: flex; flex-direction: column; gap: 10px; }
+/* ── 간트 차트 타임라인 ── */
+.ganttWrap { display: flex; flex-direction: column; gap: 14px; }
 
-.timelineCard {
-  display: flex; align-items: stretch;
+.ganttBadge {
+  display: flex; align-items: center; gap: 8px;
   background: var(--bg-3); border: 1px solid var(--line);
-  border-radius: var(--r-md); overflow: hidden;
+  border-radius: var(--r-sm); padding: 10px 14px;
+  font-size: 13px; color: var(--text-1);
 }
-.timelineAccent {
-  width: 4px; flex-shrink: 0;
+.ganttBadgeIcon { font-size: 15px; }
+
+.ganttChart { display: flex; flex-direction: column; gap: 10px; }
+
+.ganttRow {
+  display: flex; align-items: center; gap: 10px;
 }
-.timelineBody {
-  flex: 1; padding: 14px 16px;
+.ganttName {
+  width: 96px; flex-shrink: 0;
+  font-size: 13px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.timelineRow {
-  display: flex; justify-content: space-between; align-items: center;
+.ganttTrack {
+  flex: 1; position: relative;
+  height: 26px; background: var(--bg-0); border-radius: 4px; overflow: visible;
 }
-.timelineName {
-  font-size: 14px; font-weight: 700;
+.ganttBar {
+  height: 100%; border-radius: 4px;
+  transition: width 0.7s cubic-bezier(0.25, 1, 0.5, 1);
 }
-.timelineKind {
-  font-size: 11px; color: var(--text-3);
-  background: var(--bg-0); border-radius: 4px;
-  padding: 2px 6px;
+.ganttEndLabel {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-mono); white-space: nowrap;
+  pointer-events: none;
 }
-.timelineMonths {
-  font-size: 15px; font-weight: 700; color: var(--text-0);
+.ganttMonths {
+  width: 52px; flex-shrink: 0; text-align: right;
+  font-size: 11px; color: var(--text-3); font-family: var(--font-mono);
 }
-.timelineDateBadge {
-  font-size: 12px; color: var(--text-2); font-weight: 500;
+
+/* x축 */
+.ganttAxis {
+  position: relative; margin-left: 106px;
+  height: 20px; border-top: 1px solid var(--line); margin-top: 2px;
 }
-.timelineNoDate {
-  font-size: 12px; color: var(--text-3);
+.ganttAxisNow {
+  position: absolute; left: 0; top: 4px;
+  font-size: 10px; color: var(--text-3); transform: translateX(-2px);
 }
-.timelineBalance {
-  margin-top: 6px; font-size: 12px; color: var(--text-2);
+.ganttAxisYear {
+  position: absolute; top: 4px;
+  font-size: 10px; color: var(--text-3); transform: translateX(-50%);
 }
-.timelineBalance strong {
-  font-weight: 600; color: var(--text-1);
+.ganttNote {
+  font-size: 11px; color: var(--text-3); margin-top: 2px;
 }
 
 /* ── 비율 게이지 ── */
