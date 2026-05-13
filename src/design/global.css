@@ -134,19 +134,19 @@
 
 [data-theme="ivory_light"] {
   /* ── Canvas / Surface ── */
-  --bg-0: #CEC9BE;
-  --bg-1: #D6D1C6;
-  --bg-2: #E2DDD2;
-  --bg-3: #D9D4C9;
-  --bg-4: #C8C3B8;
+  --bg-0: #E6E1D3;
+  --bg-1: #EBE6D8;
+  --bg-2: #F3EEE1;
+  --bg-3: #E3DED0;
+  --bg-4: #D8D3C5;
   --line: rgba(0,0,0,0.09);
-  --line-strong: rgba(0,0,0,0.17);
+  --line-strong: rgba(0,0,0,0.18);
 
   /* ── Text ── */
-  --text-0: #141410;
-  --text-1: #28281E;
-  --text-2: #484840;
-  --text-3: #706E66;
+  --text-0: #0C0C08;
+  --text-1: #1E1E14;
+  --text-2: #3A3A2E;
+  --text-3: #5C5C4E;
 
   /* ── Brand: Mint (라이트에서 충분한 대비 유지) ── */
   --mint-100: #C0EFD8;
