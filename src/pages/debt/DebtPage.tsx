@@ -79,9 +79,8 @@ function PayoffTimeline({ liabilities }: { liabilities: Liability[] }) {
   );
 
   const withMonths = liabilities.filter(l => effectiveMonths(l) > 0);
-  const maxMonths  = withMonths.length > 0 ? Math.max(...withMonths.map(l => effectiveMonths(l))) : 1;
 
-  // 기간 있는 부채 먼저, 없는 부채는 뒤로
+  // 기간 있는 부채 먼저(짧은 순), 없는 부채는 뒤로
   const sorted = [
     ...withMonths.sort((a, b) => effectiveMonths(a) - effectiveMonths(b)),
     ...liabilities.filter(l => effectiveMonths(l) === 0),
@@ -91,27 +90,36 @@ function PayoffTimeline({ liabilities }: { liabilities: Liability[] }) {
     <div className={styles.timelineList}>
       {sorted.map(item => {
         const months = effectiveMonths(item);
-        const pct    = months > 0 ? (months / maxMonths) * 100 : 15; // 최소 15% 폭 표시
         const color  = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
         const isCalc = !item.remainingMonths && item.totalBalance;
         const noDate = months === 0;
         return (
-          <div key={item.id} className={styles.timelineItem}>
-            <div className={styles.timelineLabel}>
-              <span style={{ color }}>{item.name}</span>
-              <span className={styles.timelineDate}>
-                {noDate
-                  ? <span style={{ color: 'var(--text-3)' }}>납입 중</span>
-                  : <>{effectivePayoffDate(item)} 완납{isCalc && <span style={{ color: 'var(--text-3)', fontSize: 10, marginLeft: 4 }}>(추정)</span>}</>
-                }
-              </span>
-            </div>
-            <div className={styles.timelineTrack}>
-              <div className={styles.timelineFill} style={{ width: `${pct}%`, background: noDate ? 'var(--bg-4)' : color, opacity: noDate ? 0.5 : 1 }} />
-            </div>
-            <div className={styles.timelineMeta}>
-              {months > 0 ? <span>{months}개월 남음</span> : <span style={{ color: 'var(--text-3)', fontSize: 11 }}>잔여 기간 미설정</span>}
-              {item.totalBalance && <span>잔여 {fmtShort(item.totalBalance)}원</span>}
+          <div key={item.id} className={styles.timelineCard}>
+            {/* 왼쪽 컬러 바 */}
+            <div className={styles.timelineAccent} style={{ background: color }} />
+            <div className={styles.timelineBody}>
+              <div className={styles.timelineRow}>
+                <span className={styles.timelineName} style={{ color }}>{item.name}</span>
+                <span className={styles.timelineKind}>{LIABILITY_KIND_LABELS[item.kind] ?? item.kind}</span>
+              </div>
+              <div className={styles.timelineRow} style={{ marginTop: 8 }}>
+                {noDate ? (
+                  <span className={styles.timelineNoDate}>상환 기간 미설정</span>
+                ) : (
+                  <>
+                    <span className={styles.timelineMonths}>{months}개월 후 완납</span>
+                    <span className={styles.timelineDateBadge}>
+                      {effectivePayoffDate(item)}
+                      {isCalc && <span style={{ color: 'var(--text-3)', fontSize: 10, marginLeft: 4 }}>(추정)</span>}
+                    </span>
+                  </>
+                )}
+              </div>
+              {item.totalBalance && (
+                <div className={styles.timelineBalance}>
+                  잔여 원금 <strong>{fmt(item.totalBalance)}</strong>
+                </div>
+              )}
             </div>
           </div>
         );

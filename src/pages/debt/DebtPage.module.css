@@ -128,23 +128,44 @@
 }
 
 /* ── 타임라인 ── */
-.timelineList { display: flex; flex-direction: column; gap: 16px; }
-.timelineItem { display: flex; flex-direction: column; gap: 6px; }
-.timelineLabel {
+.timelineList { display: flex; flex-direction: column; gap: 10px; }
+
+.timelineCard {
+  display: flex; align-items: stretch;
+  background: var(--bg-3); border: 1px solid var(--line);
+  border-radius: var(--r-md); overflow: hidden;
+}
+.timelineAccent {
+  width: 4px; flex-shrink: 0;
+}
+.timelineBody {
+  flex: 1; padding: 14px 16px;
+}
+.timelineRow {
   display: flex; justify-content: space-between; align-items: center;
-  font-size: 13px; font-weight: 600;
 }
-.timelineDate { font-size: 11px; color: var(--text-2); font-weight: 500; }
-.timelineTrack {
-  height: 8px; background: var(--bg-0); border-radius: 4px; overflow: hidden;
+.timelineName {
+  font-size: 14px; font-weight: 700;
 }
-.timelineFill {
-  height: 100%; border-radius: 4px; transition: width 0.6s ease;
-}
-.timelineMeta {
-  display: flex; justify-content: space-between;
+.timelineKind {
   font-size: 11px; color: var(--text-3);
-  font-family: var(--font-mono);
+  background: var(--bg-0); border-radius: 4px;
+  padding: 2px 6px;
+}
+.timelineMonths {
+  font-size: 15px; font-weight: 700; color: var(--text-0);
+}
+.timelineDateBadge {
+  font-size: 12px; color: var(--text-2); font-weight: 500;
+}
+.timelineNoDate {
+  font-size: 12px; color: var(--text-3);
+}
+.timelineBalance {
+  margin-top: 6px; font-size: 12px; color: var(--text-2);
+}
+.timelineBalance strong {
+  font-weight: 600; color: var(--text-1);
 }
 
 /* ── 비율 게이지 ── */
