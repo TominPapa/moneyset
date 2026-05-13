@@ -1,9 +1,8 @@
-// DebtPage — 부채 관리
-// 기본: 전체 사용자 / 상세 분석: supporter 티어 이상
+// DebtPage — 부채 관리 (전면 재구성)
 
 import { useState } from 'react';
 import { useAppStore } from '../../app/store/appStore';
-import type { Liability } from '../../domain/types';
+import type { Liability, Account } from '../../domain/types';
 import styles from './DebtPage.module.css';
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────────
@@ -11,46 +10,23 @@ import styles from './DebtPage.module.css';
 function fmt(n: number): string { return n.toLocaleString('ko-KR') + '원'; }
 function fmtShort(n: number): string {
   if (n >= 100_000_000) return (n / 100_000_000).toFixed(1) + '억';
-  if (n >= 10_000)      return (n / 10_000).toFixed(0) + '만';
+  if (n >= 10_000) return (n / 10_000).toFixed(0) + '만';
   return n.toLocaleString('ko-KR');
 }
 
 const LIABILITY_KIND_LABELS: Record<string, string> = {
-  loan:                  '대출',
-  installment:           '할부',
-  rent:                  '월세',
+  loan: '대출',
+  installment: '할부',
+  rent: '월세',
   credit_card_recurring: '카드대금',
 };
 
 const LIABILITY_KIND_COLORS: Record<string, string> = {
-  loan:                  '#F47272',
-  installment:           '#D9B26A',
-  rent:                  '#9DB6F0',
+  loan: '#F47272',
+  installment: '#D9B26A',
+  rent: '#9DB6F0',
   credit_card_recurring: '#C9A6F0',
 };
-
-// ─── 잠금 오버레이 ─────────────────────────────────────────────────────────────
-
-function LockedSection({ onUnlock }: { onUnlock: () => void }) {
-  return (
-    <div className={styles.lockedSection}>
-      <div className={styles.lockedBlur} />
-      <div className={styles.lockedContent}>
-        <div className={styles.lockedIcon}>✦</div>
-        <div className={styles.lockedTitle}>후원자 전용 기능</div>
-        <div className={styles.lockedDesc}>
-          부채 상환 타임라인, 부채 비율 분석, 상환 전략 추천은<br />
-          텀블벅 후원자에게 제공되는 기능입니다.
-        </div>
-        <button className={styles.lockedBtn} type="button" onClick={onUnlock}>
-          후원자 코드 입력하기
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── 상환 타임라인 (supporter) ────────────────────────────────────────────────
 
 function effectiveMonths(item: Liability): number {
   if (item.remainingMonths && item.remainingMonths > 0) return item.remainingMonths;
@@ -66,117 +42,422 @@ function effectivePayoffDate(item: Liability): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
 }
 
-function PayoffTimeline({ liabilities }: { liabilities: Liability[] }) {
-  if (liabilities.length === 0) return (
-    <p className={styles.empty}>등록된 부채가 없습니다.</p>
+function calcScore(totalDebt: number, totalAssets: number): number {
+  if (totalDebt === 0) return 100;
+  if (totalAssets === 0) return 5;
+  const ratio = totalDebt / totalAssets;
+  return Math.max(5, Math.min(95, Math.round(100 - 95 * Math.min(1, ratio / 3))));
+}
+
+function scoreLevel(score: number): { label: string; color: string } {
+  if (score >= 85) return { label: '건강', color: '#3FD6A4' };
+  if (score >= 65) return { label: '양호', color: '#7FC8D6' };
+  if (score >= 45) return { label: '주의', color: '#E8B86A' };
+  if (score >= 25) return { label: '위험', color: '#F47272' };
+  return { label: '심각', color: '#FF3B3B' };
+}
+
+// ─── 잠금 오버레이 ─────────────────────────────────────────────────────────────
+
+function LockedSection({ onUnlock }: { onUnlock: () => void }) {
+  return (
+    <div className={styles.lockedSection}>
+      <div className={styles.lockedBlur} />
+      <div className={styles.lockedContent}>
+        <div className={styles.lockedIcon}>✦</div>
+        <div className={styles.lockedTitle}>후원자 전용 기능</div>
+        <div className={styles.lockedDesc}>
+          부채 비율 분석은<br />
+          텀블벅 후원자에게 제공되는 기능입니다.
+        </div>
+        <button className={styles.lockedBtn} type="button" onClick={onUnlock}>
+          후원자 코드 입력하기
+        </button>
+      </div>
+    </div>
   );
+}
 
-  const now = new Date();
+// ─── DebtHealthGauge ──────────────────────────────────────────────────────────
 
-  const items = liabilities
-    .map(l => ({ ...l, months: effectiveMonths(l), isCalc: !l.remainingMonths && !!l.totalBalance }))
-    .sort((a, b) => a.months - b.months);
-
-  const maxMonths = Math.max(...items.map(i => i.months), 12);
-
-  // x축 연도 레이블
-  const maxYears  = Math.ceil(maxMonths / 12);
-  const yearStep  = maxYears <= 3 ? 1 : maxYears <= 10 ? 2 : maxYears <= 20 ? 5 : 10;
-  const axisYears: { label: string; pct: number }[] = [];
-  for (let y = yearStep; y <= maxYears; y += yearStep) {
-    axisYears.push({ label: String(now.getFullYear() + y), pct: Math.min((y * 12 / maxMonths) * 100, 100) });
-  }
-
-  // 가장 빠른 완납 부채
-  const firstPayoff = items.find(i => i.months > 0);
+function DebtHealthGauge({ score }: { score: number }) {
+  const size = 200;
+  const stroke = 14;
+  const r = (size - stroke) / 2;
+  const circumference = Math.PI * r;
+  const dashoff = circumference * (1 - score / 100);
+  const { label, color } = scoreLevel(score);
 
   return (
-    <div className={styles.ganttWrap}>
-      {/* 첫 완납 하이라이트 */}
-      {firstPayoff && (
-        <div className={styles.ganttBadge}>
-          <span className={styles.ganttBadgeIcon}>🎯</span>
-          <span>
-            가장 빠른 완납 —{' '}
-            <strong style={{ color: LIABILITY_KIND_COLORS[firstPayoff.kind] ?? 'var(--text-0)' }}>
-              {firstPayoff.name}
-            </strong>
-            {' '}· {effectivePayoffDate(firstPayoff)}
-            <span style={{ color: 'var(--text-3)', marginLeft: 6 }}>({firstPayoff.months}개월 후)</span>
+    <div className={styles.gaugeWrap}>
+      <svg width={size} height={size / 2 + 30}>
+        <defs>
+          <linearGradient id="debtGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#F47272" />
+            <stop offset="50%" stopColor="#E8B86A" />
+            <stop offset="100%" stopColor="#3FD6A4" />
+          </linearGradient>
+        </defs>
+        <path
+          d={`M ${stroke / 2} ${size / 2} A ${r} ${r} 0 0 1 ${size - stroke / 2} ${size / 2}`}
+          fill="none"
+          stroke="rgba(255,255,255,0.07)"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+        />
+        <path
+          d={`M ${stroke / 2} ${size / 2} A ${r} ${r} 0 0 1 ${size - stroke / 2} ${size / 2}`}
+          fill="none"
+          stroke="url(#debtGrad)"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashoff}
+        />
+      </svg>
+      <div className={styles.gaugeCenter}>
+        <div className={styles.gaugeScore} style={{ color }}>{score}</div>
+        <div className={styles.gaugeLabel} style={{ color }}>{label}</div>
+      </div>
+      <div className={styles.gaugeAxis}>
+        <span>심각</span><span>주의</span><span>건강</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── NextPayments ──────────────────────────────────────────────────────────────
+
+function NextPayments({ liabilities }: { liabilities: Liability[] }) {
+  const active = liabilities.filter(l => l.isActive);
+  if (active.length === 0) {
+    return <div className={styles.nextEmpty}>납부 일정 없음</div>;
+  }
+
+  const today = new Date().getDate();
+  const sorted = [...active].sort((a, b) => {
+    // 오늘 이후 날짜 우선, 그 다음 날짜 순
+    const aAfter = a.dueDay >= today;
+    const bAfter = b.dueDay >= today;
+    if (aAfter && !bAfter) return -1;
+    if (!aAfter && bAfter) return 1;
+    return a.dueDay - b.dueDay;
+  }).slice(0, 3);
+
+  return (
+    <div className={styles.nextList}>
+      {sorted.map(item => {
+        const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+        const isPast = item.dueDay < today;
+        return (
+          <div key={item.id} className={styles.nextItem} style={{ borderLeftColor: color }}>
+            <div className={styles.nextDay}>
+              <div className={styles.nextDayNum} style={{ color: isPast ? 'var(--text-3)' : color }}>{item.dueDay}</div>
+              <div className={styles.nextDayLabel}>일</div>
+            </div>
+            <div className={styles.nextDivider} />
+            <div className={styles.nextName}>{item.name}</div>
+            <div className={styles.nextAmount}>{fmtShort(item.monthlyAmount)}원</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── KpiCard ──────────────────────────────────────────────────────────────────
+
+function KpiCard({ label, value, unit, hint, color }: {
+  label: string;
+  value: string;
+  unit?: string;
+  hint: string;
+  color?: string;
+}) {
+  return (
+    <div className={styles.kpiCard}>
+      <div className={styles.kpiLabel}>{label}</div>
+      <div className={styles.kpiValue} style={{ color: color ?? 'var(--text-0)' }}>
+        {value}{unit && <span className={styles.kpiUnit}>{unit}</span>}
+      </div>
+      <div className={styles.kpiHint}>{hint}</div>
+    </div>
+  );
+}
+
+// ─── DebtCard ─────────────────────────────────────────────────────────────────
+
+function DebtCard({ item }: { item: Liability }) {
+  const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+  const months = effectiveMonths(item);
+  const years = months > 0 ? Math.floor(months / 12) : 0;
+  const remMonths = months > 0 ? months % 12 : 0;
+  const durationLabel = months > 0
+    ? (years > 0 ? `${years}년 ${remMonths > 0 ? remMonths + '개월' : ''}`.trim() : `${months}개월`)
+    : '—';
+
+  return (
+    <div className={styles.debtCard}>
+      <div className={styles.debtCardTop}>
+        <div className={styles.debtCardLeft}>
+          <span className={styles.debtCardName}>{item.name}</span>
+          <span
+            className={styles.debtKindBadge}
+            style={{ color, borderColor: `${color}44`, background: `${color}11` }}
+          >
+            {LIABILITY_KIND_LABELS[item.kind] ?? item.kind}
           </span>
         </div>
-      )}
-
-      {/* 간트 차트 */}
-      <div className={styles.ganttChart}>
-        {items.map(item => {
-          const color    = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
-          const widthPct = item.months > 0 ? Math.max((item.months / maxMonths) * 100, 1.5) : 1.5;
-          const shortBar = widthPct < 18;
-
-          const pd = new Date();
-          pd.setMonth(pd.getMonth() + item.months);
-          const endLabel = item.months > 0
-            ? `${pd.getFullYear()}.${String(pd.getMonth() + 1).padStart(2, '0')}${item.isCalc ? ' *' : ''}`
-            : '미설정';
-
-          return (
-            <div key={item.id} className={styles.ganttRow}>
-              <div className={styles.ganttName} style={{ color }}>{item.name}</div>
-              <div className={styles.ganttTrack}>
-                <div
-                  className={styles.ganttBar}
-                  style={{ width: `${widthPct}%`, background: `linear-gradient(90deg, ${color}55, ${color})`, borderRight: `2px solid ${color}` }}
-                />
-                <span
-                  className={styles.ganttEndLabel}
-                  style={shortBar
-                    ? { left: `calc(${widthPct}% + 6px)`, color: 'var(--text-2)' }
-                    : { right: 6, color: '#fff' }
-                  }
-                >
-                  {endLabel}
-                </span>
-              </div>
-              <div className={styles.ganttMonths}>
-                {item.months > 0 ? `${item.months}개월` : '—'}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* x축 */}
-        <div className={styles.ganttAxis}>
-          <span className={styles.ganttAxisNow}>지금</span>
-          {axisYears.map(({ label, pct }) => (
-            <span key={label} className={styles.ganttAxisYear} style={{ left: `${pct}%` }}>{label}</span>
-          ))}
+        <div className={styles.debtCardMonthly}>
+          <span className={styles.debtCardMonthlyLabel}>월납입</span>
+          <span className={styles.debtCardMonthlyValue} style={{ color }}>
+            {fmtShort(item.monthlyAmount)}원
+          </span>
         </div>
       </div>
-
-      {items.some(i => i.isCalc) && (
-        <p className={styles.ganttNote}>* 잔여원금 ÷ 월납입액 기준 추정값</p>
+      <div className={styles.debtCardGrid}>
+        <div className={styles.debtCardStat}>
+          <div className={styles.debtCardStatLabel}>잔여원금</div>
+          <div className={styles.debtCardStatValue}>
+            {item.totalBalance ? fmtShort(item.totalBalance) + '원' : '—'}
+          </div>
+        </div>
+        <div className={styles.debtCardStat}>
+          <div className={styles.debtCardStatLabel}>남은기간</div>
+          <div className={styles.debtCardStatValue}>{durationLabel}</div>
+        </div>
+        <div className={styles.debtCardStat}>
+          <div className={styles.debtCardStatLabel}>납부일</div>
+          <div className={styles.debtCardStatValue}>매월 {item.dueDay}일</div>
+        </div>
+      </div>
+      {months > 0 && (
+        <div className={styles.debtCardPayoff}>
+          {effectivePayoffDate(item)} 완납 예정
+          {!item.remainingMonths && <span className={styles.debtCardEstimate}> (추정)</span>}
+        </div>
       )}
     </div>
   );
 }
 
-// ─── 부채/자산 비율 게이지 (supporter) ───────────────────────────────────────
+// ─── DebtDonut ────────────────────────────────────────────────────────────────
+
+function DebtDonut({ liabilities }: { liabilities: Liability[] }) {
+  const items = liabilities.filter(l => l.isActive && l.totalBalance && l.totalBalance > 0);
+  const total = items.reduce((s, l) => s + (l.totalBalance ?? 0), 0);
+
+  if (items.length === 0 || total === 0) {
+    return <div className={styles.donutEmpty}>잔여원금 데이터 없음</div>;
+  }
+
+  const cx = 80, cy = 80, r = 60, strokeW = 22;
+  const circumference = 2 * Math.PI * r;
+
+  let offset = 0;
+  const slices = items.map((item, i) => {
+    const pct = (item.totalBalance ?? 0) / total;
+    const dash = pct * circumference;
+    const gap = circumference - dash;
+    const color = LIABILITY_KIND_COLORS[item.kind] ?? `hsl(${i * 60}, 60%, 60%)`;
+    const slice = { item, pct, dash, gap, offset, color };
+    offset += dash;
+    return slice;
+  });
+
+  return (
+    <div className={styles.donutWrap}>
+      <div className={styles.donutChart}>
+        <svg width="160" height="160" viewBox="0 0 160 160">
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={strokeW} />
+          {slices.map(({ item, dash, gap, offset: off, color }) => (
+            <circle
+              key={item.id}
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke={color}
+              strokeWidth={strokeW}
+              strokeDasharray={`${dash} ${gap}`}
+              strokeDashoffset={circumference / 4 - off}
+              strokeLinecap="butt"
+            />
+          ))}
+          <text x={cx} y={cy - 6} textAnchor="middle" fill="var(--text-3)" fontSize="9">총부채</text>
+          <text x={cx} y={cy + 10} textAnchor="middle" fill="var(--text-0)" fontSize="13" fontWeight="700">
+            {fmtShort(total)}원
+          </text>
+        </svg>
+      </div>
+      <div className={styles.donutLegend}>
+        {slices.map(({ item, pct, color }) => (
+          <div key={item.id} className={styles.donutLegendItem}>
+            <span className={styles.donutLegendDot} style={{ background: color }} />
+            <span className={styles.donutLegendName}>{item.name}</span>
+            <span className={styles.donutLegendPct}>{Math.round(pct * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── PayoffChart (스택 영역 차트 SVG) ────────────────────────────────────────
+
+function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
+  const items = liabilities.filter(l => l.isActive && effectiveMonths(l) > 0);
+  if (items.length === 0) {
+    return <div className={styles.chartEmpty}>상환 기간 데이터가 없습니다.</div>;
+  }
+
+  const maxMonths = Math.max(...items.map(l => effectiveMonths(l)));
+  const W = 600, H = 200, padL = 8, padR = 8, padT = 16, padB = 30;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  // 각 월별 잔여 총액 계산
+  const steps = Math.min(maxMonths, 120); // 최대 120개월(10년)
+  const months = Array.from({ length: steps + 1 }, (_, i) => i);
+
+  // 각 부채의 월별 잔여 원금
+  function balanceAt(item: Liability, m: number): number {
+    const em = effectiveMonths(item);
+    if (em <= 0) return 0;
+    const b = item.totalBalance ?? item.monthlyAmount * em;
+    const remaining = b - (b / em) * m;
+    return Math.max(0, remaining);
+  }
+
+  // 누적 스택 데이터 포인트
+  const stackData = months.map(m => {
+    let cum = 0;
+    return items.map(item => {
+      const b = balanceAt(item, m);
+      const prev = cum;
+      cum += b;
+      return { prev, curr: cum };
+    });
+  });
+
+  const maxY = stackData[0][items.length - 1]?.curr ?? 1;
+
+  function xPos(m: number) { return padL + (m / steps) * chartW; }
+  function yPos(v: number) { return padT + chartH - (v / maxY) * chartH; }
+
+  // 영역 경로 생성
+  function buildArea(itemIdx: number): string {
+    const topPts = months.map(m => `${xPos(m)},${yPos(stackData[m][itemIdx].curr)}`);
+    const botPts = [...months].reverse().map(m => `${xPos(m)},${yPos(stackData[m][itemIdx].prev)}`);
+    return `M ${topPts[0]} L ${topPts.join(' L ')} L ${botPts.join(' L ')} Z`;
+  }
+
+  // x축 레이블
+  const xLabels: { m: number; label: string }[] = [];
+  const labelStep = maxMonths > 60 ? 12 : maxMonths > 24 ? 6 : 3;
+  for (let m = labelStep; m <= steps; m += labelStep) {
+    const label = m >= 12 ? `${Math.round(m / 12)}년` : `${m}개월`;
+    xLabels.push({ m: Math.min(m, steps), label });
+  }
+
+  // 완납 마일스톤
+  const milestones = items
+    .map(item => ({ item, em: effectiveMonths(item) }))
+    .filter(({ em }) => em > 0 && em <= steps)
+    .sort((a, b) => a.em - b.em);
+
+  return (
+    <div className={styles.chartWrap}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="xMidYMid meet"
+        className={styles.chartSvg}
+      >
+        <defs>
+          {items.map((item, i) => {
+            const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+            return (
+              <linearGradient key={item.id} id={`areaGrad${i}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.7" />
+                <stop offset="100%" stopColor={color} stopOpacity="0.15" />
+              </linearGradient>
+            );
+          })}
+        </defs>
+
+        {/* 영역 (아래에서 위로) */}
+        {items.map((item, i) => {
+          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+          return (
+            <path
+              key={item.id}
+              d={buildArea(i)}
+              fill={`url(#areaGrad${i})`}
+              stroke={color}
+              strokeWidth="1"
+              strokeOpacity="0.6"
+            />
+          );
+        })}
+
+        {/* x축 */}
+        <line x1={padL} y1={padT + chartH} x2={padL + chartW} y2={padT + chartH} stroke="var(--line)" strokeWidth="1" />
+        {xLabels.map(({ m, label }) => (
+          <text
+            key={m}
+            x={xPos(m)}
+            y={H - 6}
+            textAnchor="middle"
+            fill="var(--text-3)"
+            fontSize="9"
+          >
+            {label}
+          </text>
+        ))}
+
+        {/* 완납 마일스톤 */}
+        {milestones.map(({ item, em }) => {
+          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+          const x = xPos(em);
+          const y = yPos(stackData[em] ? stackData[em][items.indexOf(item)].prev : 0);
+          return (
+            <g key={item.id}>
+              <line x1={x} y1={padT} x2={x} y2={padT + chartH} stroke={color} strokeWidth="1" strokeDasharray="3,3" strokeOpacity="0.5" />
+              <circle cx={x} cy={y} r="4" fill={color} />
+            </g>
+          );
+        })}
+
+        {/* 범례 */}
+        {items.map((item, i) => {
+          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+          return (
+            <g key={item.id}>
+              <rect x={padL + i * 90} y={padT - 12} width="8" height="8" rx="2" fill={color} fillOpacity="0.8" />
+              <text x={padL + i * 90 + 12} y={padT - 5} fill="var(--text-2)" fontSize="9">{item.name}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+// ─── DebtRatioGauge (supporter) ───────────────────────────────────────────────
 
 function DebtRatioGauge({ liabilities, accounts }: {
   liabilities: Liability[];
-  accounts: { balance: number; isActive: boolean }[];
+  accounts: Account[];
 }) {
-  const totalDebt   = liabilities.filter(l => l.isActive && l.totalBalance).reduce((s, l) => s + (l.totalBalance ?? 0), 0);
+  const totalDebt = liabilities.filter(l => l.isActive && l.totalBalance).reduce((s, l) => s + (l.totalBalance ?? 0), 0);
   const totalAssets = accounts.filter(a => a.isActive).reduce((s, a) => s + a.balance, 0);
-  const ratio       = totalAssets > 0 ? Math.min(100, Math.round((totalDebt / totalAssets) * 100)) : 0;
-  const isHealthy   = ratio < 30;
-  const isWarning   = ratio >= 30 && ratio < 60;
+  const ratio = totalAssets > 0 ? Math.min(100, Math.round((totalDebt / totalAssets) * 100)) : 0;
+  const isHealthy = ratio < 30;
+  const isWarning = ratio >= 30 && ratio < 60;
 
   const gaugeColor = isHealthy ? 'var(--mint-500)' : isWarning ? 'var(--gold-500)' : '#F47272';
   const gaugeLabel = isHealthy ? '건강' : isWarning ? '주의' : '위험';
 
-  // 인디케이터 점 위치 계산 (반원: 왼쪽 180° → 오른쪽 0°)
   const dotAngle = ((180 - 180 * (ratio / 100)) * Math.PI) / 180;
   const dotX = 90 + 80 * Math.cos(dotAngle);
   const dotY = 90 - 80 * Math.sin(dotAngle);
@@ -184,26 +465,21 @@ function DebtRatioGauge({ liabilities, accounts }: {
   return (
     <div className={styles.ratioCard}>
       <div className={styles.ratioGaugeWrap}>
-        {/* 반원 게이지 */}
         <svg width="180" height="100" viewBox="0 0 180 100">
           <defs>
             <filter id="gaugeDot" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
           </defs>
-          {/* 배경 트랙 */}
-          <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke="var(--bg-0)" strokeWidth="12" strokeLinecap="round"/>
-          {/* 채워진 호 */}
+          <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke="var(--bg-0)" strokeWidth="12" strokeLinecap="round" />
           <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke={gaugeColor}
             strokeWidth="12" strokeLinecap="round"
             strokeDasharray={`${(ratio / 100) * 251.2} 251.2`}
           />
-          {/* 위치 인디케이터 점 */}
           {ratio > 0 && (
             <circle cx={dotX} cy={dotY} r="8" fill={gaugeColor} filter="url(#gaugeDot)" />
           )}
-          {/* 중앙 텍스트 */}
           <text x="90" y="76" textAnchor="middle" fill={gaugeColor} fontSize="24" fontWeight="700">{ratio}%</text>
           <text x="90" y="91" textAnchor="middle" fill="var(--text-2)" fontSize="11">{gaugeLabel}</text>
         </svg>
@@ -226,8 +502,8 @@ function DebtRatioGauge({ liabilities, accounts }: {
       </div>
       <div className={styles.ratioHint}>
         {isHealthy ? '✓ 부채 비율이 건강한 수준입니다 (30% 미만)' :
-         isWarning ? '⚠ 부채 비율이 높습니다. 상환 속도를 높이는 것을 권장합니다.' :
-                    '⛔ 부채가 자산의 60%를 초과했습니다. 즉시 관리가 필요합니다.'}
+          isWarning ? '⚠ 부채 비율이 높습니다. 상환 속도를 높이는 것을 권장합니다.' :
+            '⛔ 부채가 자산의 60%를 초과했습니다. 즉시 관리가 필요합니다.'}
       </div>
     </div>
   );
@@ -235,23 +511,51 @@ function DebtRatioGauge({ liabilities, accounts }: {
 
 // ─── DebtPage ─────────────────────────────────────────────────────────────────
 
+type SortMode = 'amount' | 'dueDay' | 'payoff';
+
 export function DebtPage() {
   const liabilities = useAppStore(s => s.liabilities);
-  const accounts    = useAppStore(s => s.accounts);
-  const userTier    = useAppStore(s => s.userTier);
+  const accounts = useAppStore(s => s.accounts);
+  const userTier = useAppStore(s => s.userTier);
   const isSupporter = userTier === 'supporter';
-
-  const [showUnlockModal, setShowUnlockModal] = useState(false);
-  const [unlockCode, setUnlockCode]           = useState('');
-  const [unlockError, setUnlockError]         = useState('');
-  const [unlocking, setUnlocking]             = useState(false);
   const unlockSupporter = useAppStore(s => s.unlockSupporter);
 
-  const active        = liabilities.filter(l => l.isActive);
-  const totalMonthly  = active.reduce((s, l) => s + l.monthlyAmount, 0);
-  const totalBalance  = active.filter(l => l.totalBalance).reduce((s, l) => s + (l.totalBalance ?? 0), 0);
-  const loanCount     = active.filter(l => l.kind === 'loan').length;
-  const installCount  = active.filter(l => l.kind === 'installment').length;
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [unlockCode, setUnlockCode] = useState('');
+  const [unlockError, setUnlockError] = useState('');
+  const [unlocking, setUnlocking] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>('amount');
+
+  const active = liabilities.filter(l => l.isActive);
+
+  // KPI 계산
+  const totalMonthly = active.reduce((s, l) => s + l.monthlyAmount, 0);
+  const totalBalance = active.filter(l => l.totalBalance).reduce((s, l) => s + (l.totalBalance ?? 0), 0);
+  const totalAssets = accounts.filter(a => a.isActive).reduce((s, a) => s + a.balance, 0);
+  const score = calcScore(totalBalance, totalAssets);
+  const { label: scoreLabel, color: scoreColor } = scoreLevel(score);
+
+  // 완납까지 최장 기간
+  const maxMonths = active.length > 0
+    ? Math.max(0, ...active.map(l => effectiveMonths(l)))
+    : 0;
+  const maxYears = Math.floor(maxMonths / 12);
+  const maxRemMonths = maxMonths % 12;
+  const payoffLabel = maxMonths > 0
+    ? (maxYears > 0 ? `${maxYears}년 ${maxRemMonths > 0 ? maxRemMonths + '개월' : ''}`.trim() : `${maxMonths}개월`)
+    : '—';
+
+  // 정렬된 부채 목록
+  const sortedActive = [...active].sort((a, b) => {
+    if (sortMode === 'amount') return (b.totalBalance ?? 0) - (a.totalBalance ?? 0);
+    if (sortMode === 'dueDay') return a.dueDay - b.dueDay;
+    if (sortMode === 'payoff') return effectiveMonths(a) - effectiveMonths(b);
+    return 0;
+  });
+
+  // 부채/자산 비율 텍스트
+  const debtRatioPct = totalAssets > 0 ? Math.round((totalBalance / totalAssets) * 100) : 0;
+  const debtCount = active.length;
 
   async function handleUnlock() {
     setUnlocking(true);
@@ -282,97 +586,139 @@ export function DebtPage() {
 
       <div className={styles.scroll}>
 
-        {/* ── 요약 카드 3개 ── */}
-        <div className={styles.summaryGrid}>
-          <div className={styles.summaryCard}>
-            <div className={styles.summaryLabel}>월 납입 합계</div>
-            <div className={styles.summaryValue} style={{ color: '#F47272' }}>{fmt(totalMonthly)}</div>
-            <div className={styles.summaryHint}>매월 고정 지출</div>
-          </div>
-          <div className={styles.summaryCard}>
-            <div className={styles.summaryLabel}>총 잔여 원금</div>
-            <div className={styles.summaryValue}>{totalBalance > 0 ? fmt(totalBalance) : '—'}</div>
-            <div className={styles.summaryHint}>{active.length}건 활성 부채</div>
-          </div>
-          <div className={styles.summaryCard}>
-            <div className={styles.summaryLabel}>부채 종류</div>
-            <div className={styles.summaryValue} style={{ fontSize: 20 }}>
-              {loanCount > 0 && `대출 ${loanCount}건 `}
-              {installCount > 0 && `할부 ${installCount}건`}
-              {loanCount === 0 && installCount === 0 && (active.length > 0 ? `${active.length}건` : '없음')}
+        {/* ── Hero: 3열 그리드 ── */}
+        <div className={styles.hero}>
+          <DebtHealthGauge score={score} />
+
+          <div className={styles.heroContent}>
+            <div className={styles.heroSubtitle}>
+              DEBT HEALTH · <span style={{ color: scoreColor }}>{scoreLabel} 구간</span>
             </div>
-            <div className={styles.summaryHint}>
-              {active.filter(l => effectiveMonths(l) > 0).length > 0
-                ? `최장 ${Math.max(...active.filter(l => effectiveMonths(l) > 0).map(l => effectiveMonths(l)))}개월 남음`
-                : '상환 기간 미설정'}
+            <div className={styles.heroTitle}>
+              {totalAssets > 0
+                ? `부채가 자산의 ${debtRatioPct}%`
+                : totalBalance > 0 ? '자산 정보 없음' : '부채 없음'}
+            </div>
+            <div className={styles.heroBadges}>
+              <span className={styles.heroBadge} style={{ borderColor: `${scoreColor}44`, color: scoreColor, background: `${scoreColor}11` }}>
+                {scoreLabel}
+              </span>
+              <span className={styles.heroBadge}>
+                부채 {debtCount}건
+              </span>
+              {maxMonths > 0 && (
+                <span className={styles.heroBadge}>
+                  최장 {payoffLabel}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className={styles.heroPayments}>
+            <div className={styles.sectionSmallTitle}>이번 달 납부 일정</div>
+            <NextPayments liabilities={liabilities} />
+          </div>
+        </div>
+
+        {/* ── KPI 3열 ── */}
+        <div className={styles.kpiRow}>
+          <KpiCard
+            label="월 납입 합계"
+            value={fmtShort(totalMonthly)}
+            unit="원"
+            hint="매월 고정 지출"
+            color="#F47272"
+          />
+          <KpiCard
+            label="총 잔여 원금"
+            value={totalBalance > 0 ? fmtShort(totalBalance) : '—'}
+            unit={totalBalance > 0 ? '원' : undefined}
+            hint={`${active.length}건 활성 부채`}
+          />
+          <KpiCard
+            label="완납까지"
+            value={payoffLabel}
+            hint={maxMonths > 0 ? effectivePayoffDate(active.reduce((a, b) => effectiveMonths(a) > effectiveMonths(b) ? a : b, active[0])) + ' 완납 예정' : '상환 기간 미설정'}
+          />
+        </div>
+
+        {/* ── 메인 그리드: 1.7fr + 1fr ── */}
+        <div className={styles.mainGrid}>
+
+          {/* 왼쪽: 부채 목록 */}
+          <div className={styles.mainLeft}>
+            <div className={styles.section}>
+              <div className={styles.debtListHeader}>
+                <div className={styles.sectionTitle}>부채 상세</div>
+                <div className={styles.sortTabs}>
+                  <button
+                    type="button"
+                    className={sortMode === 'amount' ? styles.sortTabActive : styles.sortTab}
+                    onClick={() => setSortMode('amount')}
+                  >
+                    금액순
+                  </button>
+                  <button
+                    type="button"
+                    className={sortMode === 'dueDay' ? styles.sortTabActive : styles.sortTab}
+                    onClick={() => setSortMode('dueDay')}
+                  >
+                    납부일순
+                  </button>
+                  <button
+                    type="button"
+                    className={sortMode === 'payoff' ? styles.sortTabActive : styles.sortTab}
+                    onClick={() => setSortMode('payoff')}
+                  >
+                    완납순
+                  </button>
+                </div>
+              </div>
+
+              {sortedActive.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <p>등록된 부채가 없습니다.</p>
+                  <p className={styles.emptyHint}>설정 → 자산·부채에서 추가할 수 있습니다.</p>
+                </div>
+              ) : (
+                <div className={styles.debtCardList}>
+                  {sortedActive.map(item => (
+                    <DebtCard key={item.id} item={item} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 오른쪽: 도넛 + 비율 게이지 */}
+          <div className={styles.mainRight}>
+            {/* 종류별 잔여원금 도넛 */}
+            <div className={styles.section}>
+              <div className={styles.sectionTitle}>종류별 잔여원금</div>
+              <DebtDonut liabilities={liabilities} />
+            </div>
+
+            {/* 부채/자산 비율 (supporter 전용) */}
+            <div className={styles.section} style={{ position: 'relative' }}>
+              <div className={styles.sectionTitle}>
+                부채 / 자산 비율
+                {!isSupporter && <span className={styles.lockTag}>✦ 후원자 전용</span>}
+              </div>
+              <div style={{ opacity: isSupporter ? 1 : 0.2, pointerEvents: isSupporter ? 'auto' : 'none' }}>
+                <DebtRatioGauge liabilities={liabilities} accounts={accounts} />
+              </div>
+              {!isSupporter && (
+                <LockedSection onUnlock={() => setShowUnlockModal(true)} />
+              )}
             </div>
           </div>
         </div>
 
-        {/* ── 부채 목록 ── */}
+        {/* ── 상환 로드맵 (PayoffChart) ── */}
         <div className={styles.section}>
-          <div className={styles.sectionTitle}>부채 목록</div>
-          {active.length === 0 ? (
-            <div className={styles.emptyState}>
-              <p>등록된 부채가 없습니다.</p>
-              <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
-                설정 → 자산·부채에서 추가할 수 있습니다.
-              </p>
-            </div>
-          ) : (
-            <div className={styles.debtList}>
-              {active.map(item => {
-                const color  = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
-                return (
-                  <div key={item.id} className={styles.debtItem}>
-                    <div className={styles.debtKindDot} style={{ background: color }} />
-                    <div className={styles.debtInfo}>
-                      <div className={styles.debtRow}>
-                        <span className={styles.debtName}>{item.name}</span>
-                        <span className={styles.debtKindBadge} style={{ color, borderColor: `${color}44`, background: `${color}11` }}>
-                          {LIABILITY_KIND_LABELS[item.kind] ?? item.kind}
-                        </span>
-                      </div>
-                      <div className={styles.debtMeta}>
-                        <span>월 {fmt(item.monthlyAmount)}</span>
-                        {item.totalBalance && <span>잔여 {fmtShort(item.totalBalance)}원</span>}
-                        {item.remainingMonths && <span>{item.remainingMonths}개월 남음</span>}
-                        <span>납입일 {item.dueDay}일</span>
-                      </div>
-                      {effectiveMonths(item) > 0 && (
-                        <div className={styles.debtPayoffLabel}>
-                          {effectivePayoffDate(item)} 완납 예정
-                          {!item.remainingMonths && <span style={{ color: 'var(--text-3)', marginLeft: 4 }}>(추정)</span>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── 상환 타임라인 (전체 공개) ── */}
-        <div className={styles.section}>
-          <div className={styles.sectionTitle}>상환 타임라인</div>
-          <PayoffTimeline liabilities={liabilities} />
-        </div>
-
-        {/* ── 부채/자산 비율 (supporter 전용) ── */}
-        <div className={styles.section} style={{ position: 'relative' }}>
-          <div className={styles.sectionTitle}>
-            부채 / 자산 비율
-            {!isSupporter && <span className={styles.lockTag}>✦ 후원자 전용</span>}
-          </div>
-
-          <div style={{ opacity: isSupporter ? 1 : 0.2, pointerEvents: isSupporter ? 'auto' : 'none' }}>
-            <DebtRatioGauge liabilities={liabilities} accounts={accounts} />
-          </div>
-
-          {!isSupporter && (
-            <LockedSection onUnlock={() => setShowUnlockModal(true)} />
-          )}
+          <div className={styles.sectionTitle}>PAYOFF PROJECTION</div>
+          <h3 className={styles.sectionH3}>상환 로드맵</h3>
+          <PayoffChart liabilities={liabilities} />
         </div>
 
       </div>
@@ -398,7 +744,12 @@ export function DebtPage() {
             {unlockError && <p className={styles.codeError}>{unlockError}</p>}
             <div className={styles.modalActions}>
               <button className={styles.modalCancelBtn} type="button" onClick={() => setShowUnlockModal(false)}>취소</button>
-              <button className={styles.modalConfirmBtn} type="button" onClick={handleUnlock} disabled={unlocking || !unlockCode.trim()}>
+              <button
+                className={styles.modalConfirmBtn}
+                type="button"
+                onClick={handleUnlock}
+                disabled={unlocking || !unlockCode.trim()}
+              >
                 {unlocking ? '확인 중…' : '활성화'}
               </button>
             </div>

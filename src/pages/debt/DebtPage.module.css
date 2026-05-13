@@ -1,4 +1,4 @@
-/* DebtPage.module.css */
+/* DebtPage.module.css — 전면 재구성 */
 
 .page {
   display: flex; flex-direction: column;
@@ -19,12 +19,11 @@
   letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2);
 }
 .topTitle {
-  font-family: var(--font-display);
   font-size: 22px; font-weight: 600; letter-spacing: -0.4px; margin-top: 4px;
 }
 .tierBadge {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px; border-radius: var(--r-full);
+  padding: 6px 14px; border-radius: 999px;
   font-size: 12px; font-weight: 700;
   background: rgba(217,178,106,0.12); color: var(--gold-300);
   border: 1px solid rgba(217,178,106,0.3);
@@ -37,26 +36,131 @@
   display: flex; flex-direction: column; gap: 20px;
 }
 
-/* ── 요약 3개 카드 ── */
-.summaryGrid {
+/* ── Hero ── */
+.hero {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 24px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 28px 28px 20px;
+  align-items: start;
+}
+
+/* DebtHealthGauge */
+.gaugeWrap {
+  display: flex; flex-direction: column; align-items: center;
+  position: relative;
+  width: 200px;
+}
+.gaugeCenter {
+  position: absolute;
+  left: 0; right: 0; top: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+.gaugeScore {
+  font-size: 52px; font-weight: 700; line-height: 1;
+}
+.gaugeLabel {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  margin-top: 2px;
+}
+.gaugeAxis {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--text-3);
+  padding: 0 4px; width: 100%;
+  margin-top: -4px;
+}
+
+/* Hero Content */
+.heroContent {
+  display: flex; flex-direction: column; gap: 12px;
+  padding-top: 8px;
+}
+.heroSubtitle {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-2);
+}
+.heroTitle {
+  font-size: 22px; font-weight: 700;
+  letter-spacing: -0.4px; color: var(--text-0);
+  line-height: 1.2;
+}
+.heroBadges {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 4px;
+}
+.heroBadge {
+  display: inline-flex; align-items: center;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--bg-3); color: var(--text-2);
+}
+
+/* Hero Payments */
+.heroPayments {
+  display: flex; flex-direction: column; gap: 10px;
+  padding-top: 8px;
+}
+.sectionSmallTitle {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* NextPayments */
+.nextList { display: flex; flex-direction: column; gap: 6px; }
+.nextItem {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-3); border-radius: 8px;
+  border-left: 2px solid var(--line);
+}
+.nextDay { text-align: center; min-width: 32px; }
+.nextDayNum { font-size: 18px; font-weight: 700; font-family: var(--font-mono); }
+.nextDayLabel { font-size: 9px; color: var(--text-3); }
+.nextDivider { width: 1px; height: 28px; background: var(--line); flex-shrink: 0; }
+.nextName { flex: 1; font-size: 12px; color: var(--text-1); }
+.nextAmount { font-size: 12px; font-weight: 600; font-family: var(--font-mono); color: var(--text-0); white-space: nowrap; }
+.nextEmpty { font-size: 12px; color: var(--text-3); padding: 8px 0; }
+
+/* ── KPI Row ── */
+.kpiRow {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
 }
-.summaryCard {
+.kpiCard {
   padding: 22px; border-radius: var(--r-lg);
   background: var(--bg-2); border: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 4px;
 }
-.summaryLabel {
+.kpiLabel {
   font-size: 11px; font-weight: 600;
-  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-2);
-  margin-bottom: 8px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-2);
 }
-.summaryValue {
-  font-family: var(--font-display);
-  font-size: 26px; font-weight: 600; letter-spacing: -0.5px;
+.kpiValue {
+  font-size: 26px; font-weight: 700;
+  letter-spacing: -0.5px; line-height: 1.15;
 }
-.summaryHint { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+.kpiUnit {
+  font-size: 14px; font-weight: 500; margin-left: 2px; color: var(--text-2);
+}
+.kpiHint { font-size: 12px; color: var(--text-3); margin-top: 2px; }
 
-/* ── 섹션 ── */
+/* ── 메인 그리드 ── */
+.mainGrid {
+  display: grid; grid-template-columns: 1.7fr 1fr; gap: 16px;
+  align-items: start;
+}
+.mainLeft { display: flex; flex-direction: column; gap: 16px; }
+.mainRight { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── 섹션 공통 ── */
 .section {
   background: var(--bg-2); border: 1px solid var(--line);
   border-radius: var(--r-lg); padding: 24px;
@@ -68,114 +172,98 @@
   margin-bottom: 18px;
   display: flex; align-items: center; gap: 10px;
 }
+.sectionH3 {
+  font-size: 16px; font-weight: 700; margin: 0 0 16px;
+  color: var(--text-0);
+}
 .lockTag {
   display: inline-flex; align-items: center;
-  padding: 3px 8px; border-radius: var(--r-full);
+  padding: 3px 8px; border-radius: 999px;
   font-size: 10px; font-weight: 700;
   background: rgba(217,178,106,0.1); color: var(--gold-300);
   border: 1px solid rgba(217,178,106,0.3);
 }
 
-/* ── 부채 목록 ── */
-.debtList { display: flex; flex-direction: column; gap: 0; }
-.debtItem {
-  display: flex; align-items: flex-start; gap: 14px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--line);
+/* ── 부채 목록 헤더 ── */
+.debtListHeader {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
 }
-.debtItem:last-child { border-bottom: none; }
-.debtKindDot {
-  width: 10px; height: 10px; border-radius: 50%;
-  margin-top: 5px; flex-shrink: 0;
+.debtListHeader .sectionTitle { margin-bottom: 0; }
+.sortTabs { display: flex; gap: 4px; }
+.sortTab {
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 600;
+  background: transparent; border: 1px solid var(--line);
+  color: var(--text-3); cursor: pointer;
+  transition: all 0.15s;
 }
-.debtInfo { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-.debtRow { display: flex; align-items: center; gap: 8px; }
-.debtName { font-size: 15px; font-weight: 600; }
-.debtKindBadge {
-  font-size: 10px; font-weight: 600;
-  padding: 2px 7px; border-radius: var(--r-full);
-  border: 1px solid;
-}
-.debtMeta {
-  display: flex; gap: 12px;
-  font-size: 12px; color: var(--text-2);
-  font-family: var(--font-mono);
-}
-.debtPayoffLabel {
-  margin-top: 4px; font-size: 11px; color: var(--text-3);
+.sortTab:hover { color: var(--text-1); border-color: var(--text-2); }
+.sortTabActive {
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 600;
+  background: var(--bg-3); border: 1px solid var(--mint-500);
+  color: var(--mint-300); cursor: pointer;
 }
 
-/* ── 상세 분석 그리드 ── */
-.detailGrid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-  transition: opacity 0.3s;
-}
-.detailCard {
+/* ── DebtCard ── */
+.debtCardList { display: flex; flex-direction: column; gap: 10px; }
+.debtCard {
   background: var(--bg-3); border: 1px solid var(--line);
-  border-radius: var(--r-md); padding: 20px;
+  border-radius: var(--r-md); padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
 }
-.detailCardTitle {
-  font-size: 12px; font-weight: 600;
-  color: var(--text-1); margin-bottom: 16px;
-  text-transform: uppercase; letter-spacing: 0.08em;
+.debtCardTop {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
-
-/* ── 간트 차트 타임라인 ── */
-.ganttWrap { display: flex; flex-direction: column; gap: 14px; }
-
-.ganttBadge {
-  display: flex; align-items: center; gap: 8px;
-  background: var(--bg-3); border: 1px solid var(--line);
-  border-radius: var(--r-sm); padding: 10px 14px;
-  font-size: 13px; color: var(--text-1);
-}
-.ganttBadgeIcon { font-size: 15px; }
-
-.ganttChart { display: flex; flex-direction: column; gap: 10px; }
-
-.ganttRow {
-  display: flex; align-items: center; gap: 10px;
-}
-.ganttName {
-  width: 96px; flex-shrink: 0;
-  font-size: 13px; font-weight: 700;
+.debtCardLeft { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.debtCardName {
+  font-size: 15px; font-weight: 600;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.ganttTrack {
-  flex: 1; position: relative;
-  height: 26px; background: var(--bg-0); border-radius: 4px; overflow: visible;
+.debtKindBadge {
+  font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: 999px;
+  border: 1px solid; flex-shrink: 0;
 }
-.ganttBar {
-  height: 100%; border-radius: 4px;
-  transition: width 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+.debtCardMonthly {
+  display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0;
 }
-.ganttEndLabel {
-  position: absolute; top: 50%; transform: translateY(-50%);
-  font-size: 11px; font-weight: 600;
-  font-family: var(--font-mono); white-space: nowrap;
-  pointer-events: none;
-}
-.ganttMonths {
-  width: 52px; flex-shrink: 0; text-align: right;
-  font-size: 11px; color: var(--text-3); font-family: var(--font-mono);
-}
+.debtCardMonthlyLabel { font-size: 9px; color: var(--text-3); }
+.debtCardMonthlyValue { font-size: 16px; font-weight: 700; font-family: var(--font-mono); }
 
-/* x축 */
-.ganttAxis {
-  position: relative; margin-left: 106px;
-  height: 20px; border-top: 1px solid var(--line); margin-top: 2px;
+.debtCardGrid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 0; border-top: 1px solid var(--line);
+  padding-top: 10px;
 }
-.ganttAxisNow {
-  position: absolute; left: 0; top: 4px;
-  font-size: 10px; color: var(--text-3); transform: translateX(-2px);
+.debtCardStat {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 0 4px;
 }
-.ganttAxisYear {
-  position: absolute; top: 4px;
-  font-size: 10px; color: var(--text-3); transform: translateX(-50%);
+.debtCardStat + .debtCardStat { border-left: 1px solid var(--line); }
+.debtCardStatLabel { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; }
+.debtCardStatValue { font-size: 13px; font-weight: 600; font-family: var(--font-mono); color: var(--text-0); }
+
+.debtCardPayoff {
+  font-size: 11px; color: var(--text-3);
 }
-.ganttNote {
-  font-size: 11px; color: var(--text-3); margin-top: 2px;
-}
+.debtCardEstimate { color: var(--text-3); }
+
+/* ── DonutChart ── */
+.donutWrap { display: flex; align-items: center; gap: 16px; }
+.donutChart { flex-shrink: 0; }
+.donutLegend { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+.donutLegendItem { display: flex; align-items: center; gap: 6px; }
+.donutLegendDot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.donutLegendName { flex: 1; font-size: 12px; color: var(--text-1); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.donutLegendPct { font-size: 12px; font-weight: 700; font-family: var(--font-mono); color: var(--text-0); flex-shrink: 0; }
+.donutEmpty { font-size: 12px; color: var(--text-3); text-align: center; padding: 20px 0; }
+
+/* ── PayoffChart ── */
+.chartWrap { width: 100%; }
+.chartSvg { width: 100%; height: auto; display: block; }
+.chartEmpty { font-size: 13px; color: var(--text-2); text-align: center; padding: 32px 0; }
 
 /* ── 비율 게이지 ── */
 .ratioCard { display: flex; flex-direction: column; align-items: center; gap: 16px; }
@@ -188,6 +276,7 @@
   font-size: 12px; color: var(--text-2);
   padding: 10px 12px; background: var(--bg-0); border-radius: 8px;
   line-height: 1.5; width: 100%; text-align: center;
+  box-sizing: border-box;
 }
 
 /* ── 잠금 오버레이 ── */
@@ -207,14 +296,8 @@
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   text-align: center; padding: 32px;
 }
-.lockedIcon {
-  font-size: 28px; color: var(--gold-300);
-  filter: drop-shadow(0 0 12px rgba(217,178,106,0.5));
-}
-.lockedTitle {
-  font-family: var(--font-display);
-  font-size: 20px; font-weight: 600; color: var(--text-0);
-}
+.lockedIcon { font-size: 28px; color: var(--gold-300); filter: drop-shadow(0 0 12px rgba(217,178,106,0.5)); }
+.lockedTitle { font-size: 20px; font-weight: 600; color: var(--text-0); }
 .lockedDesc { font-size: 13px; color: var(--text-2); line-height: 1.65; }
 .lockedBtn {
   margin-top: 6px; padding: 10px 22px;
@@ -235,14 +318,11 @@
 }
 .modal {
   background: var(--bg-2); border: 1px solid var(--line);
-  border-radius: var(--r-xl); padding: 32px;
+  border-radius: var(--r-lg); padding: 32px;
   width: 100%; max-width: 400px;
   display: flex; flex-direction: column; gap: 14px;
 }
-.modalTitle {
-  font-family: var(--font-display);
-  font-size: 20px; font-weight: 600; color: var(--gold-300);
-}
+.modalTitle { font-size: 20px; font-weight: 600; color: var(--gold-300); }
 .modalDesc { font-size: 13px; color: var(--text-2); line-height: 1.65; }
 .codeInput {
   width: 100%; padding: 12px 14px;
@@ -277,12 +357,18 @@
   text-align: center; padding: 40px 20px;
   font-size: 14px; color: var(--text-2);
 }
+.emptyHint { font-size: 12px; color: var(--text-3); margin-top: 4px; }
 .empty { font-size: 13px; color: var(--text-2); text-align: center; padding: 20px 0; }
 
 /* ── 모바일 ── */
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; }
+  .gaugeWrap { width: 100%; align-items: center; }
+  .mainGrid { grid-template-columns: 1fr; }
+}
 @media (max-width: 767px) {
   .topBar { padding: 16px; min-height: unset; }
   .scroll { padding: 16px 16px 80px; gap: 14px; }
-  .summaryGrid { grid-template-columns: 1fr 1fr; }
-  .detailGrid { grid-template-columns: 1fr; }
+  .kpiRow { grid-template-columns: 1fr 1fr; }
+  .hero { padding: 18px; }
 }
