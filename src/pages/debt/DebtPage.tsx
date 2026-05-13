@@ -135,19 +135,36 @@ function DebtRatioGauge({ liabilities, accounts }: {
   const gaugeColor = isHealthy ? 'var(--mint-500)' : isWarning ? 'var(--gold-500)' : '#F47272';
   const gaugeLabel = isHealthy ? '건강' : isWarning ? '주의' : '위험';
 
+  // 인디케이터 점 위치 계산 (반원: 왼쪽 180° → 오른쪽 0°)
+  const dotAngle = ((180 - 180 * (ratio / 100)) * Math.PI) / 180;
+  const dotX = 90 + 80 * Math.cos(dotAngle);
+  const dotY = 90 - 80 * Math.sin(dotAngle);
+
   return (
     <div className={styles.ratioCard}>
       <div className={styles.ratioGaugeWrap}>
         {/* 반원 게이지 */}
         <svg width="180" height="100" viewBox="0 0 180 100">
-          <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke="var(--bg-3)" strokeWidth="14" strokeLinecap="round"/>
+          <defs>
+            <filter id="gaugeDot" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          {/* 배경 트랙 */}
+          <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke="var(--bg-0)" strokeWidth="12" strokeLinecap="round"/>
+          {/* 채워진 호 */}
           <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke={gaugeColor}
-            strokeWidth="14" strokeLinecap="round"
+            strokeWidth="12" strokeLinecap="round"
             strokeDasharray={`${(ratio / 100) * 251.2} 251.2`}
-            style={{ filter: `drop-shadow(0 0 6px ${gaugeColor}80)` }}
           />
-          <text x="90" y="80" textAnchor="middle" fill={gaugeColor} fontSize="22" fontWeight="700">{ratio}%</text>
-          <text x="90" y="96" textAnchor="middle" fill="var(--text-2)" fontSize="10">{gaugeLabel}</text>
+          {/* 위치 인디케이터 점 */}
+          {ratio > 0 && (
+            <circle cx={dotX} cy={dotY} r="8" fill={gaugeColor} filter="url(#gaugeDot)" />
+          )}
+          {/* 중앙 텍스트 */}
+          <text x="90" y="76" textAnchor="middle" fill={gaugeColor} fontSize="24" fontWeight="700">{ratio}%</text>
+          <text x="90" y="91" textAnchor="middle" fill="var(--text-2)" fontSize="11">{gaugeLabel}</text>
         </svg>
       </div>
       <div className={styles.ratioStats}>
@@ -283,12 +300,16 @@ export function DebtPage() {
                       </div>
                       {effectiveMonths(item) > 0 && (
                         <div className={styles.debtBarWrap}>
-                          <div className={styles.debtBarTrack}>
-                            <div className={styles.debtBarFill}
-                              style={{ width: `${100 - repayPct(item)}%`, background: color }} />
-                          </div>
+                          {/* 상환 진행 바: remainingMonths + totalBalance 둘 다 있을 때만 */}
+                          {item.remainingMonths && item.totalBalance && repayPct(item) > 0 && (
+                            <div className={styles.debtBarTrack}>
+                              <div className={styles.debtBarFill}
+                                style={{ width: `${100 - repayPct(item)}%`, background: color }} />
+                            </div>
+                          )}
                           <span className={styles.debtBarLabel}>
                             {effectivePayoffDate(item)} 완납 예정
+                            {!item.remainingMonths && <span style={{ color: 'var(--text-3)', marginLeft: 4 }}>(잔여원금 기준 추정)</span>}
                           </span>
                         </div>
                       )}
