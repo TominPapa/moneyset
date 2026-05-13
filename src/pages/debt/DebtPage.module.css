@@ -101,16 +101,9 @@
   font-size: 12px; color: var(--text-2);
   font-family: var(--font-mono);
 }
-.debtBarWrap {
-  display: flex; align-items: center; gap: 10px; margin-top: 4px;
+.debtPayoffLabel {
+  margin-top: 4px; font-size: 11px; color: var(--text-3);
 }
-.debtBarTrack {
-  flex: 1; height: 5px; background: var(--bg-3); border-radius: 3px; overflow: hidden;
-}
-.debtBarFill {
-  height: 100%; border-radius: 3px; transition: width 0.6s ease;
-}
-.debtBarLabel { font-size: 11px; color: var(--text-3); white-space: nowrap; }
 
 /* ── 상세 분석 그리드 ── */
 .detailGrid {

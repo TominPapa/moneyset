@@ -29,13 +29,6 @@ const LIABILITY_KIND_COLORS: Record<string, string> = {
   credit_card_recurring: '#C9A6F0',
 };
 
-function repayPct(item: Liability): number {
-  if (!item.totalBalance || !item.remainingMonths || !item.monthlyAmount) return 0;
-  const originalTotal = item.totalBalance + item.monthlyAmount * item.remainingMonths;
-  if (originalTotal <= 0) return 0;
-  return Math.min(100, Math.round((item.monthlyAmount * item.remainingMonths / originalTotal) * 100));
-}
-
 // ─── 잠금 오버레이 ─────────────────────────────────────────────────────────────
 
 function LockedSection({ onUnlock }: { onUnlock: () => void }) {
@@ -307,18 +300,9 @@ export function DebtPage() {
                         <span>납입일 {item.dueDay}일</span>
                       </div>
                       {effectiveMonths(item) > 0 && (
-                        <div className={styles.debtBarWrap}>
-                          {/* 상환 진행 바: remainingMonths + totalBalance 둘 다 있을 때만 */}
-                          {item.remainingMonths && item.totalBalance && repayPct(item) > 0 && (
-                            <div className={styles.debtBarTrack}>
-                              <div className={styles.debtBarFill}
-                                style={{ width: `${100 - repayPct(item)}%`, background: color }} />
-                            </div>
-                          )}
-                          <span className={styles.debtBarLabel}>
-                            {effectivePayoffDate(item)} 완납 예정
-                            {!item.remainingMonths && <span style={{ color: 'var(--text-3)', marginLeft: 4 }}>(잔여원금 기준 추정)</span>}
-                          </span>
+                        <div className={styles.debtPayoffLabel}>
+                          {effectivePayoffDate(item)} 완납 예정
+                          {!item.remainingMonths && <span style={{ color: 'var(--text-3)', marginLeft: 4 }}>(추정)</span>}
                         </div>
                       )}
                     </div>
