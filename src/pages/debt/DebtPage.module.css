@@ -207,12 +207,30 @@
 }
 
 /* ── DebtCard ── */
+.debtScrollWrap {
+  position: relative;
+  /* 상단·하단 페이드 마스크로 카드 경계 단차 제거 */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0px,
+    black 14px,
+    black calc(100% - 20px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0px,
+    black 14px,
+    black calc(100% - 20px),
+    transparent 100%
+  );
+}
+
 .debtCardList {
   display: flex; flex-direction: column; gap: 10px;
   max-height: 460px;
   overflow-y: auto;
-  padding-right: 4px;
-  /* 스크롤바 스타일 */
+  padding: 6px 4px 16px 0;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }

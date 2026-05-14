@@ -681,10 +681,12 @@ export function DebtPage() {
                   <p className={styles.emptyHint}>설정 → 자산·부채에서 추가할 수 있습니다.</p>
                 </div>
               ) : (
-                <div className={styles.debtCardList}>
-                  {sortedActive.map(item => (
-                    <DebtCard key={item.id} item={item} />
-                  ))}
+                <div className={styles.debtScrollWrap}>
+                  <div className={styles.debtCardList}>
+                    {sortedActive.map(item => (
+                      <DebtCard key={item.id} item={item} />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
