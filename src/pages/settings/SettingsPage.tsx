@@ -355,10 +355,6 @@ function AssetsTab({ config, accounts, liabilities, onAccountsChange, onLiabilit
   const [editLiab, setEditLiab]     = useState<Liability>(emptyLiability());
   const [liabSaving, setLiabSaving] = useState(false);
 
-  const requiredCats = config.categories.filter(
-    (c) => c.entryKind === 'expense' && (c.budgetGroup === 'required' || c.budgetGroup === 'living'),
-  );
-
   const totalAssets = accounts.filter((a) => a.isActive).reduce((s, a) => s + a.balance, 0);
   const totalLiab   = liabilities.filter((l) => l.isActive).reduce((s, l) => s + (l.totalBalance ?? 0), 0);
 
