@@ -308,6 +308,12 @@ function DebtDonut({ liabilities }: { liabilities: Liability[] }) {
 
 // ─── PayoffChart (스택 영역 차트 SVG) ────────────────────────────────────────
 
+function fmtAmt(v: number): string {
+  if (v >= 100_000_000) return `${(v / 100_000_000).toFixed(1)}억`;
+  if (v >= 10_000) return `${Math.round(v / 10_000)}만`;
+  return '0';
+}
+
 function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
   const items = liabilities.filter(l => l.isActive && effectiveMonths(l) > 0);
   if (items.length === 0) {
@@ -315,24 +321,20 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
   }
 
   const maxMonths = Math.max(...items.map(l => effectiveMonths(l)));
-  const W = 600, H = 200, padL = 8, padR = 8, padT = 16, padB = 30;
+  const W = 640, H = 220, padL = 54, padR = 12, padT = 20, padB = 32;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
 
-  // 각 월별 잔여 총액 계산
-  const steps = Math.min(maxMonths, 120); // 최대 120개월(10년)
+  const steps = Math.min(maxMonths, 120);
   const months = Array.from({ length: steps + 1 }, (_, i) => i);
 
-  // 각 부채의 월별 잔여 원금
   function balanceAt(item: Liability, m: number): number {
     const em = effectiveMonths(item);
     if (em <= 0) return 0;
     const b = item.totalBalance ?? item.monthlyAmount * em;
-    const remaining = b - (b / em) * m;
-    return Math.max(0, remaining);
+    return Math.max(0, b - (b / em) * m);
   }
 
-  // 누적 스택 데이터 포인트
   const stackData = months.map(m => {
     let cum = 0;
     return items.map(item => {
@@ -348,22 +350,23 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
   function xPos(m: number) { return padL + (m / steps) * chartW; }
   function yPos(v: number) { return padT + chartH - (v / maxY) * chartH; }
 
-  // 영역 경로 생성
   function buildArea(itemIdx: number): string {
     const topPts = months.map(m => `${xPos(m)},${yPos(stackData[m][itemIdx].curr)}`);
     const botPts = [...months].reverse().map(m => `${xPos(m)},${yPos(stackData[m][itemIdx].prev)}`);
     return `M ${topPts[0]} L ${topPts.join(' L ')} L ${botPts.join(' L ')} Z`;
   }
 
-  // x축 레이블
+  // Y축 기준선 (0%, 25%, 50%, 75%, 100%)
+  const yTicks = [0, 0.25, 0.5, 0.75, 1.0];
+
+  // X축 레이블
   const xLabels: { m: number; label: string }[] = [];
   const labelStep = maxMonths > 60 ? 12 : maxMonths > 24 ? 6 : 3;
   for (let m = labelStep; m <= steps; m += labelStep) {
-    const label = m >= 12 ? `${Math.round(m / 12)}년` : `${m}개월`;
-    xLabels.push({ m: Math.min(m, steps), label });
+    xLabels.push({ m: Math.min(m, steps), label: m >= 12 ? `${Math.round(m / 12)}년` : `${m}개월` });
   }
 
-  // 완납 마일스톤
+  // 완납 마일스톤 (steps 이내만)
   const milestones = items
     .map(item => ({ item, em: effectiveMonths(item) }))
     .filter(({ em }) => em > 0 && em <= steps)
@@ -371,73 +374,89 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
 
   return (
     <div className={styles.chartWrap}>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="xMidYMid meet"
-        className={styles.chartSvg}
-      >
+      {/* 범례 — HTML로 분리 */}
+      <div className={styles.chartLegend}>
+        {items.map(item => {
+          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+          const em = effectiveMonths(item);
+          const payoffLabel = em > steps ? `${Math.round(em / 12)}년 후 완납` : em >= 12 ? `${Math.round(em / 12)}년 후 완납` : `${em}개월 후 완납`;
+          return (
+            <div key={item.id} className={styles.chartLegendItem}>
+              <span className={styles.chartLegendDot} style={{ background: color }} />
+              <span className={styles.chartLegendName}>{item.name}</span>
+              <span className={styles.chartLegendSub}>{payoffLabel}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className={styles.chartSvg}>
         <defs>
           {items.map((item, i) => {
             const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
             return (
               <linearGradient key={item.id} id={`areaGrad${i}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity="0.7" />
-                <stop offset="100%" stopColor={color} stopOpacity="0.15" />
+                <stop offset="0%" stopColor={color} stopOpacity="0.65" />
+                <stop offset="100%" stopColor={color} stopOpacity="0.12" />
               </linearGradient>
             );
           })}
         </defs>
 
-        {/* 영역 (아래에서 위로) */}
-        {items.map((item, i) => {
-          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+        {/* Y축 그리드 + 레이블 */}
+        {yTicks.map((pct, i) => {
+          const v = maxY * pct;
+          const y = yPos(v);
           return (
-            <path
-              key={item.id}
-              d={buildArea(i)}
-              fill={`url(#areaGrad${i})`}
-              stroke={color}
-              strokeWidth="1"
-              strokeOpacity="0.6"
-            />
+            <g key={i}>
+              <line
+                x1={padL} y1={y} x2={padL + chartW} y2={y}
+                stroke="var(--line)" strokeWidth={i === 0 ? 1 : 0.5}
+                strokeDasharray={pct === 1.0 ? 'none' : '4,4'}
+              />
+              <text x={padL - 6} y={y + 4} textAnchor="end" fill="var(--text-3)" fontSize="9">
+                {pct === 0 ? '0' : fmtAmt(v)}
+              </text>
+            </g>
           );
         })}
 
-        {/* x축 */}
-        <line x1={padL} y1={padT + chartH} x2={padL + chartW} y2={padT + chartH} stroke="var(--line)" strokeWidth="1" />
+        {/* 영역 */}
+        {items.map((item, i) => {
+          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+          return (
+            <path key={item.id} d={buildArea(i)}
+              fill={`url(#areaGrad${i})`} stroke={color} strokeWidth="1.2" strokeOpacity="0.5" />
+          );
+        })}
+
+        {/* X축 */}
+        <line x1={padL} y1={padT + chartH} x2={padL + chartW} y2={padT + chartH} stroke="var(--line-strong)" strokeWidth="1" />
         {xLabels.map(({ m, label }) => (
-          <text
-            key={m}
-            x={xPos(m)}
-            y={H - 6}
-            textAnchor="middle"
-            fill="var(--text-3)"
-            fontSize="9"
-          >
-            {label}
-          </text>
+          <text key={m} x={xPos(m)} y={H - 8} textAnchor="middle" fill="var(--text-3)" fontSize="9">{label}</text>
         ))}
 
         {/* 완납 마일스톤 */}
         {milestones.map(({ item, em }) => {
           const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
           const x = xPos(em);
-          const y = yPos(stackData[em] ? stackData[em][items.indexOf(item)].prev : 0);
+          const itemIdx = items.indexOf(item);
+          const stackAtEm = stackData[em];
+          const dotY = stackAtEm ? yPos(stackAtEm[itemIdx].prev) : padT + chartH;
+          const remainAfter = stackAtEm ? stackAtEm[items.length - 1].curr : 0;
           return (
             <g key={item.id}>
-              <line x1={x} y1={padT} x2={x} y2={padT + chartH} stroke={color} strokeWidth="1" strokeDasharray="3,3" strokeOpacity="0.5" />
-              <circle cx={x} cy={y} r="4" fill={color} />
-            </g>
-          );
-        })}
-
-        {/* 범례 */}
-        {items.map((item, i) => {
-          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
-          return (
-            <g key={item.id}>
-              <rect x={padL + i * 90} y={padT - 12} width="8" height="8" rx="2" fill={color} fillOpacity="0.8" />
-              <text x={padL + i * 90 + 12} y={padT - 5} fill="var(--text-2)" fontSize="9">{item.name}</text>
+              {/* 수직 점선 */}
+              <line x1={x} y1={padT} x2={x} y2={padT + chartH}
+                stroke={color} strokeWidth="1" strokeDasharray="3,3" strokeOpacity="0.6" />
+              {/* 완납 점 */}
+              <circle cx={x} cy={dotY} r="5" fill={color} />
+              <circle cx={x} cy={dotY} r="3" fill="var(--bg-2)" />
+              <circle cx={x} cy={dotY} r="1.5" fill={color} />
+              {/* 잔여 금액 라벨 */}
+              <text x={x} y={padT + chartH + 20} textAnchor="middle" fill={color} fontSize="8" fontWeight="600">
+                {remainAfter > 0 ? `↓${fmtAmt(remainAfter)}` : '완납!'}
+              </text>
             </g>
           );
         })}
