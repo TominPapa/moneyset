@@ -18,6 +18,7 @@ import type {
   AccountKind,
   Liability,
   LiabilityKind,
+  RepaymentType,
 } from '../../domain/types';
 import { insertSeedData, clearSeedData } from '../../dev/seedData';
 import styles from './SettingsPage.module.css';
@@ -48,6 +49,31 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'assets',     label: '자산·부채', icon: '🏦' },
   { key: 'data',       label: '데이터',   icon: '📊' },
 ];
+
+// ─── 이자 월납입금 자동 계산 ──────────────────────────────────────────────────
+
+function calcMonthlyPayment(
+  principal: number,
+  annualRate: number,
+  months: number,
+  type: RepaymentType,
+): number {
+  if (principal <= 0 || months <= 0) return 0;
+  if (type === 'annuity') {
+    if (!annualRate) return Math.round(principal / months);
+    const r = annualRate / 100 / 12;
+    return Math.round(principal * r * Math.pow(1 + r, months) / (Math.pow(1 + r, months) - 1));
+  }
+  if (type === 'equal_principal') {
+    const r = annualRate / 100 / 12;
+    return Math.round(principal / months + principal * r); // 첫 달(최대) 기준
+  }
+  if (type === 'bullet') {
+    const r = annualRate / 100 / 12;
+    return Math.round(principal * r); // 이자만
+  }
+  return 0;
+}
 
 // ─── 레이블 맵 ────────────────────────────────────────────────────────────────
 
@@ -108,6 +134,7 @@ function emptyLiability(): Liability {
   return {
     id: '', name: '', kind: 'loan', monthlyAmount: 0, dueDay: 25,
     totalBalance: undefined, remainingMonths: undefined,
+    repaymentType: 'annuity', interestRate: undefined,
     categoryId: '', isActive: true, autoFixedExpense: true,
     createdAt: now, updatedAt: now,
   };
@@ -364,12 +391,18 @@ function AssetsTab({ config, accounts, liabilities, onAccountsChange, onLiabilit
   function openEditLiab(l: Liability) { setEditLiab({ ...l }); setLiabSheet(true); }
 
   async function saveLiability() {
-    if (!editLiab.name.trim() || editLiab.monthlyAmount <= 0) return;
+    if (!editLiab.name.trim()) return;
+    // 자동 계산된 월납입금 우선 사용
+    const autoAmt = (editLiab.repaymentType && (editLiab.totalBalance ?? 0) > 0 && (editLiab.remainingMonths ?? 0) > 0)
+      ? calcMonthlyPayment(editLiab.totalBalance!, editLiab.interestRate ?? 0, editLiab.remainingMonths!, editLiab.repaymentType)
+      : null;
+    const finalMonthly = autoAmt ?? editLiab.monthlyAmount;
+    if (finalMonthly <= 0) return;
     setLiabSaving(true);
     try {
       const now = new Date().toISOString();
       const id = editLiab.id || `liab_${crypto.randomUUID()}`;
-      const updated: Liability = { ...editLiab, id, updatedAt: now, createdAt: editLiab.id ? editLiab.createdAt : now };
+      const updated: Liability = { ...editLiab, id, monthlyAmount: finalMonthly, updatedAt: now, createdAt: editLiab.id ? editLiab.createdAt : now };
       const list = editLiab.id ? liabilities.map((l) => (l.id === editLiab.id ? updated : l)) : [...liabilities, updated];
       await onLiabilitiesChange(list);
       setLiabSheet(false);
@@ -519,75 +552,104 @@ function AssetsTab({ config, accounts, liabilities, onAccountsChange, onLiabilit
 
       {/* 부채 편집 Sheet */}
       <BottomSheet open={liabSheet} onClose={() => setLiabSheet(false)} title={editLiab.id ? '부채 수정' : '부채 추가'}>
-        <div className={styles.form}>
-          <Input
-            label="이름"
-            value={editLiab.name}
-            onChange={(e) => updLiab('name', e.target.value)}
-            placeholder="예: 신한은행 주택대출"
-            required
-          />
-          <div className={styles.formField}>
-            <label className={styles.formLabel}>종류</label>
-            <Select
-              value={editLiab.kind}
-              onChange={(e) => updLiab('kind', e.target.value as LiabilityKind)}
-              options={[
-                { value: 'loan',                  label: '대출' },
-                { value: 'installment',           label: '할부' },
-                { value: 'rent',                  label: '월세' },
-                { value: 'credit_card_recurring', label: '카드대금' },
-              ]}
-            />
-          </div>
-          <div className={styles.formField}>
-            <label className={styles.formLabel}>월 납입금액</label>
-            <AmountInput value={editLiab.monthlyAmount} onChange={(v) => updLiab('monthlyAmount', v)} placeholder="0" />
-          </div>
-          <div className={styles.formField}>
-            <label className={styles.formLabel}>납입일</label>
-            <Select
-              value={String(editLiab.dueDay)}
-              onChange={(e) => updLiab('dueDay', Number(e.target.value))}
-              options={Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}일` }))}
-            />
-          </div>
-          <div className={styles.formField}>
-            <label className={styles.formLabel}>카테고리</label>
-            <Select
-              value={editLiab.categoryId}
-              onChange={(e) => updLiab('categoryId', e.target.value)}
-              options={[
-                { value: '', label: '카테고리 선택' },
-                ...requiredCats.map((c) => ({ value: c.id, label: `${c.icon ?? ''} ${c.name}` })),
-              ]}
-            />
-          </div>
-          <div className={styles.formField}>
-            <label className={styles.formLabel}>남은 원금 (선택)</label>
-            <AmountInput
-              value={editLiab.totalBalance ?? 0}
-              onChange={(v) => updLiab('totalBalance', v > 0 ? v : undefined)}
-              placeholder="0 (미입력 가능)"
-            />
-          </div>
-          <div className={styles.formField}>
-            <label className={styles.formLabel}>잔여 개월 (선택)</label>
-            <input
-              type="number"
-              className={styles.numberInput}
-              value={editLiab.remainingMonths ?? ''}
-              min={0}
-              placeholder="미입력 가능"
-              onChange={(e) => updLiab('remainingMonths', e.target.value ? Number(e.target.value) : undefined)}
-            />
-          </div>
-          <div className={styles.formActions}>
-            <Button variant="primary" onClick={saveLiability} disabled={liabSaving}>저장</Button>
-            {editLiab.id && <Button variant="danger" onClick={deleteLiability} disabled={liabSaving}>삭제</Button>}
-            <Button variant="ghost" onClick={() => setLiabSheet(false)}>취소</Button>
-          </div>
-        </div>
+        {(() => {
+          const canAutoCalc = !!editLiab.repaymentType && (editLiab.totalBalance ?? 0) > 0 && (editLiab.remainingMonths ?? 0) > 0;
+          const autoMonthly = canAutoCalc
+            ? calcMonthlyPayment(editLiab.totalBalance!, editLiab.interestRate ?? 0, editLiab.remainingMonths!, editLiab.repaymentType!)
+            : null;
+          return (
+            <div className={styles.form}>
+              <Input
+                label="이름"
+                value={editLiab.name}
+                onChange={(e) => updLiab('name', e.target.value)}
+                placeholder="예: 신한은행 주택대출"
+                required
+              />
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>종류</label>
+                <Select
+                  value={editLiab.kind}
+                  onChange={(e) => updLiab('kind', e.target.value as LiabilityKind)}
+                  options={[
+                    { value: 'loan',                  label: '대출' },
+                    { value: 'installment',           label: '할부' },
+                    { value: 'rent',                  label: '월세' },
+                    { value: 'credit_card_recurring', label: '카드대금' },
+                  ]}
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>상환 방식</label>
+                <Select
+                  value={editLiab.repaymentType ?? ''}
+                  onChange={(e) => updLiab('repaymentType', e.target.value ? e.target.value as RepaymentType : undefined)}
+                  options={[
+                    { value: '',                label: '선택 안함 (직접 입력)' },
+                    { value: 'annuity',         label: '원리금균등상환 — 매달 동일 금액' },
+                    { value: 'equal_principal', label: '원금균등상환 — 원금 고정 + 이자 감소' },
+                    { value: 'bullet',          label: '만기일시상환 — 이자만 납부 후 원금 일괄' },
+                  ]}
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>연이율 (%)</label>
+                <input
+                  type="number"
+                  className={styles.numberInput}
+                  value={editLiab.interestRate ?? ''}
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  placeholder="예: 3.5 (미입력 시 0%)"
+                  onChange={(e) => updLiab('interestRate', e.target.value ? Number(e.target.value) : undefined)}
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>남은 원금</label>
+                <AmountInput
+                  value={editLiab.totalBalance ?? 0}
+                  onChange={(v) => updLiab('totalBalance', v > 0 ? v : undefined)}
+                  placeholder="0"
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>잔여 개월</label>
+                <input
+                  type="number"
+                  className={styles.numberInput}
+                  value={editLiab.remainingMonths ?? ''}
+                  min={1}
+                  placeholder="예: 120 (10년)"
+                  onChange={(e) => updLiab('remainingMonths', e.target.value ? Number(e.target.value) : undefined)}
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>
+                  월 납입금액{autoMonthly !== null && <span className={styles.autoCalcBadge}>자동계산</span>}
+                </label>
+                {autoMonthly !== null ? (
+                  <div className={styles.autoCalcAmount}>{autoMonthly.toLocaleString('ko-KR')}원</div>
+                ) : (
+                  <AmountInput value={editLiab.monthlyAmount} onChange={(v) => updLiab('monthlyAmount', v)} placeholder="0" />
+                )}
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>납입일</label>
+                <Select
+                  value={String(editLiab.dueDay)}
+                  onChange={(e) => updLiab('dueDay', Number(e.target.value))}
+                  options={Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}일` }))}
+                />
+              </div>
+              <div className={styles.formActions}>
+                <Button variant="primary" onClick={saveLiability} disabled={liabSaving}>저장</Button>
+                {editLiab.id && <Button variant="danger" onClick={deleteLiability} disabled={liabSaving}>삭제</Button>}
+                <Button variant="ghost" onClick={() => setLiabSheet(false)}>취소</Button>
+              </div>
+            </div>
+          );
+        })()}
       </BottomSheet>
     </div>
   );

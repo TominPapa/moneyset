@@ -314,6 +314,32 @@ function fmtAmt(v: number): string {
   return '0';
 }
 
+function calcBalanceAt(
+  principal: number,
+  annualRate: number,
+  totalMonths: number,
+  type: string | undefined,
+  m: number,
+): number {
+  if (m >= totalMonths) return 0;
+  if (!type || type === 'equal_principal') {
+    // 원금균등 or 미설정: 원금 선형 감소
+    return Math.max(0, principal * (1 - m / totalMonths));
+  }
+  if (type === 'annuity') {
+    if (!annualRate) return Math.max(0, principal * (1 - m / totalMonths));
+    const r = annualRate / 100 / 12;
+    const rn = Math.pow(1 + r, totalMonths);
+    const rm = Math.pow(1 + r, m);
+    return Math.max(0, principal * (rn - rm) / (rn - 1));
+  }
+  if (type === 'bullet') {
+    // 만기일시: 원금 유지, 마지막 달에 0
+    return principal;
+  }
+  return Math.max(0, principal * (1 - m / totalMonths));
+}
+
 function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
   const allItems = liabilities.filter(l => l.isActive && effectiveMonths(l) > 0);
   const [selectedId, setSelectedId] = useState<string>(() => allItems[0]?.id ?? '');
@@ -326,10 +352,10 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
   const sel = allItems.find(i => i.id === selectedId) ?? allItems[0];
   const color = LIABILITY_KIND_COLORS[sel.kind] ?? '#8F8D85';
   const steps = effectiveMonths(sel); // 총 상환 개월 수 (캡 없음)
+  const principal = sel.totalBalance ?? sel.monthlyAmount * steps;
 
   function balanceAt(m: number): number {
-    const b = sel.totalBalance ?? sel.monthlyAmount * steps;
-    return Math.max(0, b - (b / steps) * m);
+    return calcBalanceAt(principal, sel.interestRate ?? 0, steps, sel.repaymentType, m);
   }
 
   const W = 640, H = 220, padL = 56, padR = 16, padT = 24, padB = 32;

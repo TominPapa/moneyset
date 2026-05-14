@@ -17,6 +17,7 @@ export type SettlementTransferDirection = 'in' | 'out';
 export type ResetMode = 'detailed_recovery' | 'summary_recovery' | 'restart_today';
 export type AccountKind = 'checking' | 'savings' | 'investment';
 export type LiabilityKind = 'loan' | 'installment' | 'rent' | 'credit_card_recurring';
+export type RepaymentType = 'annuity' | 'equal_principal' | 'bullet';
 
 // ─── 거래 (Transaction) ────────────────────────────────────────────────────────
 
@@ -159,9 +160,11 @@ export interface Liability {
   name: string;
   kind: LiabilityKind;
   monthlyAmount: number;
-  dueDay: number;           // 1-28
-  totalBalance?: number;    // 남은 원금
-  remainingMonths?: number; // 잔여 개월
+  dueDay: number;            // 1-28
+  totalBalance?: number;     // 남은 원금
+  remainingMonths?: number;  // 잔여 개월
+  repaymentType?: RepaymentType; // 상환 방식
+  interestRate?: number;     // 연이율 % (예: 3.5 → 3.5%)
   categoryId: string;
   isActive: boolean;
   autoFixedExpense: boolean; // true 면 FixedExpenseRule 자동 생성
