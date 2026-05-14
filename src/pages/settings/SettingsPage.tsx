@@ -338,14 +338,13 @@ function CategoryTab({ config, onConfigChange }: CategoryTabProps) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface AssetsTabProps {
-  config: AppConfig;
   accounts: Account[];
   liabilities: Liability[];
   onAccountsChange: (list: Account[]) => Promise<void>;
   onLiabilitiesChange: (list: Liability[]) => Promise<void>;
 }
 
-function AssetsTab({ config, accounts, liabilities, onAccountsChange, onLiabilitiesChange }: AssetsTabProps) {
+function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChange }: AssetsTabProps) {
   // Account sheet
   const [accSheet, setAccSheet]     = useState(false);
   const [editAcc, setEditAcc]       = useState<Account>(emptyAccount());
@@ -1073,7 +1072,6 @@ export function SettingsPage() {
       {/* ══ 탭 3: 자산·부채 ════════════════════════════════════════════════ */}
       {activeTab === 'assets' && (
         <AssetsTab
-          config={config}
           accounts={accounts}
           liabilities={liabilities}
           onAccountsChange={handleAccountsChange}
