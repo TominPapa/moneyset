@@ -387,6 +387,11 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
 
   async function saveLiability() {
     if (!editLiab.name.trim()) return;
+    // 만기일시상환은 remainingMonths 없으면 effectiveMonths=0이 되어 차트 제외 → 필수 입력 강제
+    if (editLiab.repaymentType === 'bullet' && !(editLiab.remainingMonths && editLiab.remainingMonths > 0)) {
+      alert('만기일시상환은 잔여 개월 수 입력이 필수입니다.');
+      return;
+    }
     // 자동 계산된 월납입금 우선 사용 (bullet + 이자율 미입력 제외)
     const canAutoSave = !!editLiab.repaymentType &&
       (editLiab.totalBalance ?? 0) > 0 &&
@@ -617,13 +622,18 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
                 />
               </div>
               <div className={styles.formField}>
-                <label className={styles.formLabel}>잔여 개월</label>
+                <label className={styles.formLabel}>
+                  잔여 개월
+                  {editLiab.repaymentType === 'bullet' && (
+                    <span className={styles.requiredBadge}>만기일시상환 필수</span>
+                  )}
+                </label>
                 <input
                   type="number"
                   className={styles.numberInput}
                   value={editLiab.remainingMonths ?? ''}
                   min={1}
-                  placeholder="예: 120 (10년)"
+                  placeholder={editLiab.repaymentType === 'bullet' ? '만기 개월 수 입력 필수' : '예: 120 (10년)'}
                   onChange={(e) => updLiab('remainingMonths', e.target.value ? Number(e.target.value) : undefined)}
                 />
               </div>

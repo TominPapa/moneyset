@@ -156,6 +156,9 @@ export async function insertSeedData(): Promise<void> {
       dueDay: 5,
       categoryId: 'cat_loan',
       totalBalance: 18_000_000,
+      remainingMonths: 72,        // 18,000,000 / 250,000 = 72개월 (이자율 0% 단순 균등상환)
+      repaymentType: 'equal_principal' as const,
+      interestRate: 0,
       isActive: true,
       autoFixedExpense: true,
       createdAt: isoNow(),
@@ -168,7 +171,10 @@ export async function insertSeedData(): Promise<void> {
       monthlyAmount: 95_000,
       dueDay: 14,
       categoryId: 'cat_card_bill',
+      totalBalance: 760_000,      // 95,000 × 8개월
       remainingMonths: 8,
+      repaymentType: 'equal_principal' as const,
+      interestRate: 0,
       isActive: true,
       autoFixedExpense: false,
       createdAt: isoNow(),

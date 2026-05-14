@@ -30,6 +30,8 @@ const LIABILITY_KIND_COLORS: Record<string, string> = {
 
 function effectiveMonths(item: Liability): number {
   if (item.remainingMonths && item.remainingMonths > 0) return item.remainingMonths;
+  // 만기일시상환은 이자 = P×r이므로 totalBalance/monthlyAmount가 수십 배 틀림 → 0 처리
+  if (item.repaymentType === 'bullet') return 0;
   if (item.totalBalance && item.monthlyAmount > 0) return Math.ceil(item.totalBalance / item.monthlyAmount);
   return 0;
 }
@@ -535,7 +537,7 @@ function DebtRatioGauge({ liabilities, accounts }: {
           <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke="var(--bg-0)" strokeWidth="12" strokeLinecap="round" />
           <path d="M 10 90 A 80 80 0 0 1 170 90" fill="none" stroke={gaugeColor}
             strokeWidth="12" strokeLinecap="round"
-            strokeDasharray={`${(ratio / 100) * 251.2} 251.2`}
+            strokeDasharray={`${(ratio / 100) * Math.PI * 80} ${Math.PI * 80}`}
           />
           {ratio > 0 && (
             <circle cx={dotX} cy={dotY} r="8" fill={gaugeColor} filter="url(#gaugeDot)" />

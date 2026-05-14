@@ -316,6 +316,18 @@
 .numberInput:focus { outline: none; border-color: var(--accent-1); }
 
 /* 자동계산 배지 + 표시 */
+.requiredBadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--warn) 15%, transparent);
+  color: var(--warn);
+  vertical-align: middle;
+}
+
 .autoCalcBadge {
   display: inline-block;
   margin-left: 6px;
