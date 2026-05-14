@@ -315,102 +315,92 @@ function fmtAmt(v: number): string {
 }
 
 function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
   const allItems = liabilities.filter(l => l.isActive && effectiveMonths(l) > 0);
+  const [selectedId, setSelectedId] = useState<string>(() => allItems[0]?.id ?? '');
+  const [hover, setHover] = useState<{ svgX: number; month: number; balance: number } | null>(null);
+
   if (allItems.length === 0) {
     return <div className={styles.chartEmpty}>상환 기간 데이터가 없습니다.</div>;
   }
 
-  // 선택된 부채만, 없으면 전체
-  const items = selectedId ? allItems.filter(i => i.id === selectedId) : allItems;
+  const sel = allItems.find(i => i.id === selectedId) ?? allItems[0];
+  const color = LIABILITY_KIND_COLORS[sel.kind] ?? '#8F8D85';
+  const steps = effectiveMonths(sel); // 총 상환 개월 수 (캡 없음)
 
-  const maxMonths = Math.max(...items.map(l => effectiveMonths(l)));
-  const W = 640, H = 220, padL = 54, padR = 12, padT = 20, padB = 32;
-  const chartW = W - padL - padR;
-  const chartH = H - padT - padB;
-
-  const steps = Math.min(maxMonths, 120);
-  const months = Array.from({ length: steps + 1 }, (_, i) => i);
-
-  function balanceAt(item: Liability, m: number): number {
-    const em = effectiveMonths(item);
-    if (em <= 0) return 0;
-    const b = item.totalBalance ?? item.monthlyAmount * em;
-    return Math.max(0, b - (b / em) * m);
+  function balanceAt(m: number): number {
+    const b = sel.totalBalance ?? sel.monthlyAmount * steps;
+    return Math.max(0, b - (b / steps) * m);
   }
 
-  // 단일 선택 시 스택 없이 개별 잔여원금만 표시
-  const stackData = months.map(m => {
-    let cum = 0;
-    return items.map(item => {
-      const b = balanceAt(item, m);
-      const prev = selectedId ? 0 : cum; // 단일 선택 시 0부터 시작
-      cum += b;
-      return { prev, curr: selectedId ? b : cum };
-    });
-  });
-
-  const maxY = stackData[0][items.length - 1]?.curr ?? 1;
+  const W = 640, H = 220, padL = 56, padR = 16, padT = 24, padB = 32;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const maxY = balanceAt(0);
 
   function xPos(m: number) { return padL + (m / steps) * chartW; }
   function yPos(v: number) { return padT + chartH - (v / maxY) * chartH; }
 
-  function buildArea(itemIdx: number): string {
-    const topPts = months.map(m => `${xPos(m)},${yPos(stackData[m][itemIdx].curr)}`);
-    const botPts = [...months].reverse().map(m => `${xPos(m)},${yPos(stackData[m][itemIdx].prev)}`);
-    return `M ${topPts[0]} L ${topPts.join(' L ')} L ${botPts.join(' L ')} Z`;
-  }
+  // 면적 경로 — 월별로 모두 계산하면 너무 많으니 100 포인트로 샘플링
+  const sampleCount = Math.min(steps, 200);
+  const samplePts = Array.from({ length: sampleCount + 1 }, (_, i) => {
+    const m = Math.round((i / sampleCount) * steps);
+    return { m, b: balanceAt(m) };
+  });
+  const topLine = samplePts.map(p => `${xPos(p.m)},${yPos(p.b)}`).join(' L ');
+  const areaPath = `M ${topLine.split(' L ')[0]} L ${topLine} L ${xPos(steps)},${yPos(0)} L ${xPos(0)},${yPos(0)} Z`;
 
+  // Y축 기준선
   const yTicks = [0, 0.25, 0.5, 0.75, 1.0];
 
+  // X축 레이블 — 상환 기간에 맞게 단위 자동 조정
   const xLabels: { m: number; label: string }[] = [];
-  const labelStep = maxMonths > 60 ? 12 : maxMonths > 24 ? 6 : 3;
-  for (let m = labelStep; m <= steps; m += labelStep) {
-    xLabels.push({ m: Math.min(m, steps), label: m >= 12 ? `${Math.round(m / 12)}년` : `${m}개월` });
+  const stepM = steps < 6 ? 1 : steps < 18 ? 3 : steps < 60 ? 6 : steps < 120 ? 12 : steps < 240 ? 24 : 60;
+  for (let m = stepM; m <= steps; m += stepM) {
+    const label = m % 12 === 0 ? `${m / 12}년` : `${m}개월`;
+    xLabels.push({ m, label });
   }
 
-  const milestones = items
-    .map(item => ({ item, em: effectiveMonths(item) }))
-    .filter(({ em }) => em > 0 && em <= steps)
-    .sort((a, b) => a.em - b.em);
+  // 마우스 호버 핸들러
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    const chartX = svgX - padL;
+    if (chartX < 0 || chartX > chartW) { setHover(null); return; }
+    const month = Math.round((chartX / chartW) * steps);
+    setHover({ svgX, month, balance: balanceAt(month) });
+  }
 
   return (
     <div className={styles.chartWrap}>
-      {/* 범례 — 클릭으로 부채 선택 */}
+      {/* 부채 선택 탭 */}
       <div className={styles.chartLegend}>
         {allItems.map(item => {
-          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
+          const c = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
           const em = effectiveMonths(item);
-          const payoffLabel = em >= 12 ? `${Math.round(em / 12)}년 후 완납` : `${em}개월 후 완납`;
-          const isActive = !selectedId || selectedId === item.id;
+          const sub = em >= 12 ? `${Math.round(em / 12)}년 상환` : `${em}개월 상환`;
           return (
-            <button
-              key={item.id}
-              type="button"
-              className={`${styles.chartLegendItem} ${selectedId === item.id ? styles.chartLegendItemSelected : ''}`}
-              style={{ opacity: isActive ? 1 : 0.35 }}
-              onClick={() => setSelectedId(selectedId === item.id ? null : item.id)}
+            <button key={item.id} type="button"
+              className={`${styles.chartLegendItem} ${item.id === (sel.id) ? styles.chartLegendItemSelected : ''}`}
+              onClick={() => { setSelectedId(item.id); setHover(null); }}
             >
-              <span className={styles.chartLegendDot} style={{ background: color }} />
+              <span className={styles.chartLegendDot} style={{ background: c }} />
               <span className={styles.chartLegendName}>{item.name}</span>
-              <span className={styles.chartLegendSub}>{payoffLabel}</span>
+              <span className={styles.chartLegendSub}>{sub}</span>
             </button>
           );
         })}
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className={styles.chartSvg}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet"
+        className={styles.chartSvg} style={{ cursor: 'crosshair' }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHover(null)}
+      >
         <defs>
-          {items.map((item, i) => {
-            const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
-            return (
-              <linearGradient key={item.id} id={`areaGrad${i}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity="0.65" />
-                <stop offset="100%" stopColor={color} stopOpacity="0.12" />
-              </linearGradient>
-            );
-          })}
+          <linearGradient id="payGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.65" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.08" />
+          </linearGradient>
         </defs>
 
         {/* Y축 그리드 + 레이블 */}
@@ -429,14 +419,10 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
           );
         })}
 
-        {/* 영역 */}
-        {items.map((item, i) => {
-          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
-          return (
-            <path key={item.id} d={buildArea(i)}
-              fill={`url(#areaGrad${i})`} stroke={color} strokeWidth="1.2" strokeOpacity="0.5" />
-          );
-        })}
+        {/* 면적 + 선 */}
+        <path d={areaPath} fill="url(#payGrad)" />
+        <polyline points={samplePts.map(p => `${xPos(p.m)},${yPos(p.b)}`).join(' ')}
+          fill="none" stroke={color} strokeWidth="2" strokeOpacity="0.85" strokeLinejoin="round" />
 
         {/* X축 */}
         <line x1={padL} y1={padT + chartH} x2={padL + chartW} y2={padT + chartH} stroke="var(--line-strong)" strokeWidth="1" />
@@ -444,26 +430,38 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
           <text key={m} x={xPos(m)} y={H - 8} textAnchor="middle" fill="var(--text-3)" fontSize="9">{label}</text>
         ))}
 
-        {/* 완납 마일스톤 */}
-        {milestones.map(({ item, em }) => {
-          const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
-          const x = xPos(em);
-          const itemIdx = items.indexOf(item);
-          const stackAtEm = stackData[em];
-          const dotY = stackAtEm ? yPos(stackAtEm[itemIdx].prev) : padT + chartH;
+        {/* 완납 마커 */}
+        <circle cx={xPos(steps)} cy={yPos(0)} r="5" fill={color} />
+        <circle cx={xPos(steps)} cy={yPos(0)} r="3" fill="var(--bg-2)" />
+        <circle cx={xPos(steps)} cy={yPos(0)} r="1.5" fill={color} />
+        <text x={xPos(steps)} y={padT - 8} textAnchor="middle" fill={color} fontSize="9" fontWeight="700">완납</text>
+
+        {/* 호버 툴팁 */}
+        {hover && hover.balance > 0 && (() => {
+          const bx = hover.svgX;
+          const by = yPos(hover.balance);
+          const flip = bx > W * 0.65;
+          const tx = flip ? bx - 96 : bx + 10;
+          const ty = Math.max(padT + 2, by - 38);
+          const monthLabel = hover.month >= 12
+            ? `${Math.floor(hover.month / 12)}년 ${hover.month % 12 ? hover.month % 12 + '개월' : ''} 후`.trim()
+            : `${hover.month}개월 후`;
           return (
-            <g key={item.id}>
-              <line x1={x} y1={padT} x2={x} y2={padT + chartH}
-                stroke={color} strokeWidth="1" strokeDasharray="3,3" strokeOpacity="0.5" />
-              <circle cx={x} cy={dotY} r="5" fill={color} />
-              <circle cx={x} cy={dotY} r="3" fill="var(--bg-2)" />
-              <circle cx={x} cy={dotY} r="1.5" fill={color} />
-              <text x={x} y={padT - 6} textAnchor="middle" fill={color} fontSize="8" fontWeight="600">
-                완납
+            <g>
+              <line x1={bx} y1={padT} x2={bx} y2={padT + chartH}
+                stroke={color} strokeWidth="1" strokeDasharray="3,3" strokeOpacity="0.6" />
+              <circle cx={bx} cy={by} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
+              <rect x={tx} y={ty} width="86" height="36" rx="6"
+                fill="var(--bg-3)" stroke={color} strokeWidth="0.8" strokeOpacity="0.6" />
+              <text x={tx + 43} y={ty + 14} textAnchor="middle" fill="var(--text-0)" fontSize="12" fontWeight="700">
+                {fmtAmt(hover.balance)}원
+              </text>
+              <text x={tx + 43} y={ty + 28} textAnchor="middle" fill="var(--text-3)" fontSize="9">
+                {monthLabel}
               </text>
             </g>
           );
-        })}
+        })()}
       </svg>
     </div>
   );
