@@ -315,10 +315,15 @@ function fmtAmt(v: number): string {
 }
 
 function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
-  const items = liabilities.filter(l => l.isActive && effectiveMonths(l) > 0);
-  if (items.length === 0) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const allItems = liabilities.filter(l => l.isActive && effectiveMonths(l) > 0);
+  if (allItems.length === 0) {
     return <div className={styles.chartEmpty}>상환 기간 데이터가 없습니다.</div>;
   }
+
+  // 선택된 부채만, 없으면 전체
+  const items = selectedId ? allItems.filter(i => i.id === selectedId) : allItems;
 
   const maxMonths = Math.max(...items.map(l => effectiveMonths(l)));
   const W = 640, H = 220, padL = 54, padR = 12, padT = 20, padB = 32;
@@ -335,13 +340,14 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
     return Math.max(0, b - (b / em) * m);
   }
 
+  // 단일 선택 시 스택 없이 개별 잔여원금만 표시
   const stackData = months.map(m => {
     let cum = 0;
     return items.map(item => {
       const b = balanceAt(item, m);
-      const prev = cum;
+      const prev = selectedId ? 0 : cum; // 단일 선택 시 0부터 시작
       cum += b;
-      return { prev, curr: cum };
+      return { prev, curr: selectedId ? b : cum };
     });
   });
 
@@ -356,17 +362,14 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
     return `M ${topPts[0]} L ${topPts.join(' L ')} L ${botPts.join(' L ')} Z`;
   }
 
-  // Y축 기준선 (0%, 25%, 50%, 75%, 100%)
   const yTicks = [0, 0.25, 0.5, 0.75, 1.0];
 
-  // X축 레이블
   const xLabels: { m: number; label: string }[] = [];
   const labelStep = maxMonths > 60 ? 12 : maxMonths > 24 ? 6 : 3;
   for (let m = labelStep; m <= steps; m += labelStep) {
     xLabels.push({ m: Math.min(m, steps), label: m >= 12 ? `${Math.round(m / 12)}년` : `${m}개월` });
   }
 
-  // 완납 마일스톤 (steps 이내만)
   const milestones = items
     .map(item => ({ item, em: effectiveMonths(item) }))
     .filter(({ em }) => em > 0 && em <= steps)
@@ -374,20 +377,25 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
 
   return (
     <div className={styles.chartWrap}>
-      {/* 범례 — HTML로 분리 */}
+      {/* 범례 — 클릭으로 부채 선택 */}
       <div className={styles.chartLegend}>
-        {items.map(item => {
+        {allItems.map(item => {
           const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
           const em = effectiveMonths(item);
-          const payoffLabel = em > steps
-            ? `${Math.round(em / 12)}년 후`
-            : em >= 12 ? `${Math.round(em / 12)}년 후` : `${em}개월 후`;
+          const payoffLabel = em >= 12 ? `${Math.round(em / 12)}년 후 완납` : `${em}개월 후 완납`;
+          const isActive = !selectedId || selectedId === item.id;
           return (
-            <div key={item.id} className={styles.chartLegendItem}>
+            <button
+              key={item.id}
+              type="button"
+              className={`${styles.chartLegendItem} ${selectedId === item.id ? styles.chartLegendItemSelected : ''}`}
+              style={{ opacity: isActive ? 1 : 0.35 }}
+              onClick={() => setSelectedId(selectedId === item.id ? null : item.id)}
+            >
               <span className={styles.chartLegendDot} style={{ background: color }} />
               <span className={styles.chartLegendName}>{item.name}</span>
-              <span className={styles.chartLegendSub}>완납 {payoffLabel}</span>
-            </div>
+              <span className={styles.chartLegendSub}>{payoffLabel}</span>
+            </button>
           );
         })}
       </div>
@@ -411,11 +419,9 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
           const y = yPos(v);
           return (
             <g key={i}>
-              <line
-                x1={padL} y1={y} x2={padL + chartW} y2={y}
+              <line x1={padL} y1={y} x2={padL + chartW} y2={y}
                 stroke="var(--line)" strokeWidth={i === 0 ? 1 : 0.5}
-                strokeDasharray={pct === 1.0 ? 'none' : '4,4'}
-              />
+                strokeDasharray={pct === 1.0 ? 'none' : '4,4'} />
               <text x={padL - 6} y={y + 4} textAnchor="end" fill="var(--text-3)" fontSize="9">
                 {pct === 0 ? '0' : fmtAmt(v)}
               </text>
@@ -445,21 +451,15 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
           const itemIdx = items.indexOf(item);
           const stackAtEm = stackData[em];
           const dotY = stackAtEm ? yPos(stackAtEm[itemIdx].prev) : padT + chartH;
-          const remainAfter = stackAtEm ? stackAtEm[items.length - 1].curr : 0;
-          // 라벨을 차트 상단 여백에 표시 (x축 겹침 방지)
-          const labelY = padT - 6;
           return (
             <g key={item.id}>
-              {/* 수직 점선 */}
               <line x1={x} y1={padT} x2={x} y2={padT + chartH}
                 stroke={color} strokeWidth="1" strokeDasharray="3,3" strokeOpacity="0.5" />
-              {/* 완납 링 점 */}
               <circle cx={x} cy={dotY} r="5" fill={color} />
               <circle cx={x} cy={dotY} r="3" fill="var(--bg-2)" />
               <circle cx={x} cy={dotY} r="1.5" fill={color} />
-              {/* 잔여 금액 — 차트 상단에 표시 */}
-              <text x={x} y={labelY} textAnchor="middle" fill={color} fontSize="8" fontWeight="600">
-                {remainAfter > 0 ? fmtAmt(remainAfter) : '완납'}
+              <text x={x} y={padT - 6} textAnchor="middle" fill={color} fontSize="8" fontWeight="600">
+                완납
               </text>
             </g>
           );
