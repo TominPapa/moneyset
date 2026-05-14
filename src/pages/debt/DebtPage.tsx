@@ -116,12 +116,15 @@ function DebtHealthGauge({ score }: { score: number }) {
         />
       </svg>
       <div className={styles.gaugeCenter}>
-        <div className={styles.gaugeScore} style={{ color }}>{score}</div>
+        <div className={styles.gaugeScore} style={{ color }}>
+          {score}<span className={styles.gaugeScoreMax}>/100</span>
+        </div>
         <div className={styles.gaugeLabel} style={{ color }}>{label}</div>
       </div>
       <div className={styles.gaugeAxis}>
         <span>심각</span><span>주의</span><span>건강</span>
       </div>
+      <div className={styles.gaugeHint}>숫자가 높을수록 부채 건강도가 좋습니다</div>
     </div>
   );
 }

@@ -74,6 +74,15 @@
   padding: 0 4px; width: 100%;
   margin-top: -4px;
 }
+.gaugeScoreMax {
+  font-size: 16px; font-weight: 400;
+  color: var(--text-3); margin-left: 2px;
+}
+.gaugeHint {
+  font-size: 11px; color: var(--text-3);
+  margin-top: 8px; text-align: center;
+  letter-spacing: -0.01em;
+}
 
 /* Hero Content */
 .heroContent {
