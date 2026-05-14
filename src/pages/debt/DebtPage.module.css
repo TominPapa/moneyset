@@ -209,28 +209,25 @@
 /* ── DebtCard ── */
 .debtScrollWrap {
   position: relative;
-  /* 상단·하단 페이드 마스크로 카드 경계 단차 제거 */
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0px,
-    black 14px,
-    black calc(100% - 20px),
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0px,
-    black 14px,
-    black calc(100% - 20px),
-    transparent 100%
-  );
+}
+/* 하단에만 페이드 — 더 있음을 암시 */
+.debtScrollWrap::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 6px;
+  height: 32px;
+  background: linear-gradient(to bottom, transparent, var(--bg-2));
+  pointer-events: none;
+  border-radius: 0 0 var(--r-md) var(--r-md);
 }
 
 .debtCardList {
   display: flex; flex-direction: column; gap: 10px;
   max-height: 460px;
   overflow-y: auto;
-  padding: 6px 4px 16px 0;
+  padding: 2px 4px 32px 0;
+  /* 카드 단위로 스냅 — 중간에서 멈추지 않음 */
+  scroll-snap-type: y proximity;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
@@ -240,6 +237,9 @@
   background: var(--line-strong); border-radius: 3px;
 }
 .debtCardList::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* 각 카드가 스크롤 스냅 포인트 */
+.debtCard { scroll-snap-align: start; }
 .debtCard {
   background: var(--bg-3); border: 1px solid var(--line);
   border-radius: var(--r-md); padding: 16px;
