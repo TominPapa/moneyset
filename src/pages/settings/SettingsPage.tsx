@@ -387,9 +387,13 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
 
   async function saveLiability() {
     if (!editLiab.name.trim()) return;
-    // 자동 계산된 월납입금 우선 사용
-    const autoAmt = (editLiab.repaymentType && (editLiab.totalBalance ?? 0) > 0 && (editLiab.remainingMonths ?? 0) > 0)
-      ? calcMonthlyPayment(editLiab.totalBalance!, editLiab.interestRate ?? 0, editLiab.remainingMonths!, editLiab.repaymentType)
+    // 자동 계산된 월납입금 우선 사용 (bullet + 이자율 미입력 제외)
+    const canAutoSave = !!editLiab.repaymentType &&
+      (editLiab.totalBalance ?? 0) > 0 &&
+      (editLiab.remainingMonths ?? 0) > 0 &&
+      !(editLiab.repaymentType === 'bullet' && !editLiab.interestRate);
+    const autoAmt = canAutoSave
+      ? calcMonthlyPayment(editLiab.totalBalance!, editLiab.interestRate ?? 0, editLiab.remainingMonths!, editLiab.repaymentType!)
       : null;
     const finalMonthly = autoAmt ?? editLiab.monthlyAmount;
     if (finalMonthly <= 0) return;
@@ -548,7 +552,11 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
       {/* 부채 편집 Sheet */}
       <BottomSheet open={liabSheet} onClose={() => setLiabSheet(false)} title={editLiab.id ? '부채 수정' : '부채 추가'}>
         {(() => {
-          const canAutoCalc = !!editLiab.repaymentType && (editLiab.totalBalance ?? 0) > 0 && (editLiab.remainingMonths ?? 0) > 0;
+          // bullet + 이자율 미입력 시 자동계산 제외 (이자 0% → 월납입 0원이 되어 저장 불가)
+          const canAutoCalc = !!editLiab.repaymentType &&
+            (editLiab.totalBalance ?? 0) > 0 &&
+            (editLiab.remainingMonths ?? 0) > 0 &&
+            !(editLiab.repaymentType === 'bullet' && !editLiab.interestRate);
           const autoMonthly = canAutoCalc
             ? calcMonthlyPayment(editLiab.totalBalance!, editLiab.interestRate ?? 0, editLiab.remainingMonths!, editLiab.repaymentType!)
             : null;

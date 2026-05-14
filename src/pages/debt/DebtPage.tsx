@@ -311,7 +311,8 @@ function DebtDonut({ liabilities }: { liabilities: Liability[] }) {
 function fmtAmt(v: number): string {
   if (v >= 100_000_000) return `${(v / 100_000_000).toFixed(1)}억`;
   if (v >= 10_000) return `${Math.round(v / 10_000)}만`;
-  return '0';
+  if (v >= 1_000) return `${Math.round(v / 1_000)}천`;
+  return String(Math.round(v));
 }
 
 function calcBalanceAt(
@@ -362,6 +363,15 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
   const maxY = balanceAt(0);
+
+  // 원금 데이터 없음 — divide-by-zero 방지
+  if (maxY <= 0) {
+    return (
+      <div className={styles.chartWrap}>
+        <div className={styles.chartEmpty}>잔여 원금 정보가 없어 차트를 표시할 수 없습니다.</div>
+      </div>
+    );
+  }
 
   function xPos(m: number) { return padL + (m / steps) * chartW; }
   function yPos(v: number) { return padT + chartH - (v / maxY) * chartH; }
