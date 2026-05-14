@@ -157,23 +157,23 @@
   display: grid;
   grid-template-columns: 1.7fr 1fr;
   gap: 16px;
-  align-items: start;
+  align-items: stretch; /* 양쪽 컬럼 항상 같은 높이 */
 }
 .mainLeft { display: flex; flex-direction: column; gap: 16px; }
 .mainRight { display: flex; flex-direction: column; gap: 16px; }
 
 /*
- * 오른쪽 컬럼 자연 높이 계산:
- *   도넛 섹션: padding(48) + title(34) + donut-SVG(160) ≈ 242px
- *   gap: 16px
- *   비율 섹션: padding(48) + title(34) + gauge-SVG(100) + stats(100) + hint(58) ≈ 372px
- *   합계 ≈ 630px
- * 왼쪽 섹션을 630px로 고정해 카드가 많아지면 내부 스크롤
+ * 왼쪽 섹션: max-height 630px로 카드가 넘치면 내부 스크롤
+ * (오른쪽 자연 높이 ≈ 630px 이므로 align-items:stretch로 양쪽 하단 정렬)
  */
 .mainLeft > .section {
   max-height: 630px;
   display: flex;
   flex-direction: column;
+}
+/* 오른쪽 비율 섹션이 남은 공간 채워 하단 맞춤 */
+.mainRight > .section:last-child {
+  flex: 1;
 }
 
 /* ── 섹션 공통 ── */
