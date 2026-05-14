@@ -157,7 +157,8 @@
   display: grid; grid-template-columns: 1.7fr 1fr; gap: 16px;
   align-items: stretch;
 }
-.mainLeft { display: flex; flex-direction: column; gap: 16px; }
+/* overflow:hidden → 카드 내용이 많아져도 왼쪽이 그리드 행을 늘리지 않음 */
+.mainLeft { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow: hidden; }
 .mainRight { display: flex; flex-direction: column; gap: 16px; }
 
 /* 왼쪽 섹션이 그리드 행 높이를 가득 채우도록 */
@@ -218,37 +219,28 @@
 }
 
 /* ── DebtCard ── */
+/* debtScrollWrap 자체가 스크롤 컨테이너 */
 .debtScrollWrap {
-  position: relative;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
-}
-/* 하단에만 페이드 — 더 있음을 암시 */
-.debtScrollWrap::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 6px;
-  height: 32px;
-  background: linear-gradient(to bottom, transparent, var(--bg-2));
-  pointer-events: none;
-  border-radius: 0 0 var(--r-md) var(--r-md);
-}
-
-.debtCardList {
-  display: flex; flex-direction: column; gap: 10px;
-  height: 100%;
   overflow-y: auto;
-  padding: 2px 4px 8px 0;
+  overflow-x: hidden;
+  padding-right: 4px;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
-.debtCardList::-webkit-scrollbar { width: 5px; }
-.debtCardList::-webkit-scrollbar-track { background: transparent; }
-.debtCardList::-webkit-scrollbar-thumb {
+.debtScrollWrap::-webkit-scrollbar { width: 5px; }
+.debtScrollWrap::-webkit-scrollbar-track { background: transparent; }
+.debtScrollWrap::-webkit-scrollbar-thumb {
   background: var(--line-strong); border-radius: 3px;
 }
-.debtCardList::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+.debtScrollWrap::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* 카드 목록 — 자연 높이, 스크롤은 부모가 담당 */
+.debtCardList {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 2px 0 8px;
+}
 
 .debtCard {
   background: var(--bg-3); border: 1px solid var(--line);
