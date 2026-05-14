@@ -156,23 +156,24 @@
 .mainGrid {
   display: grid;
   grid-template-columns: 1.7fr 1fr;
-  grid-template-rows: min-content; /* 오른쪽 컬럼의 자연 높이로 행 높이 결정 */
   gap: 16px;
-  align-items: stretch;
+  align-items: start;
 }
-/* 왼쪽은 overflow:hidden + min-height:0 → 카드 늘어나도 행 높이에 영향 안 줌 */
-.mainLeft { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow: hidden; }
+.mainLeft { display: flex; flex-direction: column; gap: 16px; }
 .mainRight { display: flex; flex-direction: column; gap: 16px; }
 
-/* 왼쪽 섹션이 그리드 행 높이를 가득 채우도록 */
+/*
+ * 오른쪽 컬럼 자연 높이 계산:
+ *   도넛 섹션: padding(48) + title(34) + donut-SVG(160) ≈ 242px
+ *   gap: 16px
+ *   비율 섹션: padding(48) + title(34) + gauge-SVG(100) + stats(100) + hint(58) ≈ 372px
+ *   합계 ≈ 630px
+ * 왼쪽 섹션을 630px로 고정해 카드가 많아지면 내부 스크롤
+ */
 .mainLeft > .section {
-  flex: 1;
+  max-height: 630px;
   display: flex;
   flex-direction: column;
-}
-/* 오른쪽 마지막 섹션이 나머지 공간을 채우도록 */
-.mainRight > .section:last-child {
-  flex: 1;
 }
 
 /* ── 섹션 공통 ── */
