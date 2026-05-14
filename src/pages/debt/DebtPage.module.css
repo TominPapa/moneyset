@@ -314,11 +314,11 @@
 
 /* 범례 */
 .chartLegend {
-  display: flex; flex-wrap: wrap; gap: 6px 16px;
-  margin-bottom: 14px;
+  display: flex; flex-wrap: wrap; gap: 4px 20px;
+  margin-bottom: 12px;
 }
 .chartLegendItem {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 5px;
 }
 .chartLegendDot {
   width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
@@ -328,6 +328,7 @@
 }
 .chartLegendSub {
   font-size: 11px; color: var(--text-3);
+  padding-left: 2px;
 }
 
 /* ── 비율 게이지 ── */

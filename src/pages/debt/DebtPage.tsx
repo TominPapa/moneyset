@@ -379,12 +379,14 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
         {items.map(item => {
           const color = LIABILITY_KIND_COLORS[item.kind] ?? '#8F8D85';
           const em = effectiveMonths(item);
-          const payoffLabel = em > steps ? `${Math.round(em / 12)}년 후 완납` : em >= 12 ? `${Math.round(em / 12)}년 후 완납` : `${em}개월 후 완납`;
+          const payoffLabel = em > steps
+            ? `${Math.round(em / 12)}년 후`
+            : em >= 12 ? `${Math.round(em / 12)}년 후` : `${em}개월 후`;
           return (
             <div key={item.id} className={styles.chartLegendItem}>
               <span className={styles.chartLegendDot} style={{ background: color }} />
               <span className={styles.chartLegendName}>{item.name}</span>
-              <span className={styles.chartLegendSub}>{payoffLabel}</span>
+              <span className={styles.chartLegendSub}>완납 {payoffLabel}</span>
             </div>
           );
         })}
@@ -444,18 +446,20 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
           const stackAtEm = stackData[em];
           const dotY = stackAtEm ? yPos(stackAtEm[itemIdx].prev) : padT + chartH;
           const remainAfter = stackAtEm ? stackAtEm[items.length - 1].curr : 0;
+          // 라벨을 차트 상단 여백에 표시 (x축 겹침 방지)
+          const labelY = padT - 6;
           return (
             <g key={item.id}>
               {/* 수직 점선 */}
               <line x1={x} y1={padT} x2={x} y2={padT + chartH}
-                stroke={color} strokeWidth="1" strokeDasharray="3,3" strokeOpacity="0.6" />
-              {/* 완납 점 */}
+                stroke={color} strokeWidth="1" strokeDasharray="3,3" strokeOpacity="0.5" />
+              {/* 완납 링 점 */}
               <circle cx={x} cy={dotY} r="5" fill={color} />
               <circle cx={x} cy={dotY} r="3" fill="var(--bg-2)" />
               <circle cx={x} cy={dotY} r="1.5" fill={color} />
-              {/* 잔여 금액 라벨 */}
-              <text x={x} y={padT + chartH + 20} textAnchor="middle" fill={color} fontSize="8" fontWeight="600">
-                {remainAfter > 0 ? `↓${fmtAmt(remainAfter)}` : '완납!'}
+              {/* 잔여 금액 — 차트 상단에 표시 */}
+              <text x={x} y={labelY} textAnchor="middle" fill={color} fontSize="8" fontWeight="600">
+                {remainAfter > 0 ? fmtAmt(remainAfter) : '완납'}
               </text>
             </g>
           );
