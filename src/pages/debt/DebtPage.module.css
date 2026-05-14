@@ -207,7 +207,21 @@
 }
 
 /* ── DebtCard ── */
-.debtCardList { display: flex; flex-direction: column; gap: 10px; }
+.debtCardList {
+  display: flex; flex-direction: column; gap: 10px;
+  max-height: 460px;
+  overflow-y: auto;
+  padding-right: 4px;
+  /* 스크롤바 스타일 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.debtCardList::-webkit-scrollbar { width: 5px; }
+.debtCardList::-webkit-scrollbar-track { background: transparent; }
+.debtCardList::-webkit-scrollbar-thumb {
+  background: var(--line-strong); border-radius: 3px;
+}
+.debtCardList::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 .debtCard {
   background: var(--bg-3); border: 1px solid var(--line);
   border-radius: var(--r-md); padding: 16px;
