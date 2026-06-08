@@ -482,3 +482,48 @@
   transform: scale(0.9);
   background-color: var(--mint-600);
 }
+
+/* ══ Asset Summary Card Row ══ */
+.summaryRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.summaryCard {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+}
+.summaryLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-transform: uppercase;
+}
+.summaryValue {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 380px) {
+  .summaryRow {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .summaryCard {
+    padding: 12px;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+

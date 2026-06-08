@@ -17,12 +17,14 @@ const KIND_OPTIONS = [
   { value: 'checking', label: '입출금' },
   { value: 'savings', label: '적금' },
   { value: 'investment', label: '투자' },
+  { value: 'insurance', label: '저축형 보험' },
 ];
 
 const KIND_LABEL: Record<AccountKind, string> = {
   checking: '입출금',
   savings: '적금',
   investment: '투자',
+  insurance: '저축형 보험',
 };
 
 interface AccountForm {
@@ -30,9 +32,22 @@ interface AccountForm {
   kind: AccountKind;
   institution: string;
   balance: number;
+  insurancePeriodYears?: number;
+  insurancePaidMonths?: number;
+  insuranceDueDay?: number;
+  insuranceMonthlyAmount?: number;
 }
 
-const EMPTY_FORM: AccountForm = { name: '', kind: 'checking', institution: '', balance: 0 };
+const EMPTY_FORM: AccountForm = {
+  name: '',
+  kind: 'checking',
+  institution: '',
+  balance: 0,
+  insurancePeriodYears: undefined,
+  insurancePaidMonths: undefined,
+  insuranceDueDay: 25,
+  insuranceMonthlyAmount: undefined,
+};
 
 export function OnboardingStep2Page() {
   const navigate = useNavigate();
@@ -63,6 +78,12 @@ export function OnboardingStep2Page() {
       sortOrder: draft.accounts.length + 1,
       lastUpdatedAt: now,
       createdAt: now,
+      ...(form.kind === 'insurance' ? {
+        insurancePeriodYears: form.insurancePeriodYears,
+        insurancePaidMonths: form.insurancePaidMonths,
+        insuranceDueDay: form.insuranceDueDay,
+        insuranceMonthlyAmount: form.insuranceMonthlyAmount,
+      } : {}),
     };
     addAccount(account);
     setSheetOpen(false);
@@ -104,7 +125,9 @@ export function OnboardingStep2Page() {
               <div className={styles.itemInfo}>
                 <span className={styles.itemName}>{acc.name}</span>
                 <span className={styles.itemMeta}>
-                  {KIND_LABEL[acc.kind]}
+                  {acc.kind === 'insurance'
+                    ? `저축형 보험 · ${acc.insurancePaidMonths ?? 0}개월 납입 (${acc.insurancePeriodYears ?? 0}년 납) · 매달 ${acc.insuranceDueDay ?? 25}일`
+                    : KIND_LABEL[acc.kind]}
                   {acc.institution ? ` · ${acc.institution}` : ''}
                 </span>
               </div>
@@ -153,6 +176,61 @@ export function OnboardingStep2Page() {
             onChange={(e) => setForm((f) => ({ ...f, institution: e.target.value }))}
             placeholder="예: 카카오뱅크"
           />
+          {form.kind === 'insurance' && (
+            <>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>납입 기간 (년)</label>
+                <input
+                  type="number"
+                  className={styles.numberInput}
+                  value={form.insurancePeriodYears ?? ''}
+                  min={1}
+                  placeholder="예: 10"
+                  onChange={(e) => setForm((f) => ({ ...f, insurancePeriodYears: e.target.value ? Number(e.target.value) : undefined }))}
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>현재 납입 횟수 (개월)</label>
+                <input
+                  type="number"
+                  className={styles.numberInput}
+                  value={form.insurancePaidMonths ?? ''}
+                  min={0}
+                  placeholder="예: 24"
+                  onChange={(e) => {
+                    const months = e.target.value ? Number(e.target.value) : 0;
+                    setForm((f) => {
+                      const next = { ...f, insurancePaidMonths: months };
+                      next.balance = (f.insuranceMonthlyAmount ?? 0) * months;
+                      return next;
+                    });
+                  }}
+                />
+              </div>
+              <Select
+                label="매달 납입일"
+                value={String(form.insuranceDueDay ?? 25)}
+                options={Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}일` }))}
+                onChange={(e) => setForm((f) => ({ ...f, insuranceDueDay: Number(e.target.value) }))}
+              />
+              <AmountInput
+                label="월 납입금액"
+                value={form.insuranceMonthlyAmount ?? 0}
+                onChange={(v) => {
+                  setForm((f) => {
+                    const next = { ...f, insuranceMonthlyAmount: v };
+                    next.balance = v * (f.insurancePaidMonths ?? 0);
+                    return next;
+                  });
+                }}
+              />
+              {form.insuranceMonthlyAmount !== undefined && form.insurancePaidMonths !== undefined && (
+                <div style={{ fontSize: '11px', color: 'var(--accent-1)', marginTop: '-8px' }}>
+                  * 월 납입금액과 납입 횟수를 바탕으로 현재 잔액이 자동 계산되었습니다. 필요 시 아래 현재 잔액을 직접 수정하세요.
+                </div>
+              )}
+            </>
+          )}
           <AmountInput
             label="현재 잔액"
             value={form.balance}

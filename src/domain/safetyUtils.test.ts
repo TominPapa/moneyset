@@ -266,6 +266,12 @@ describe('calcAssetSummary', () => {
       isActive: false, sortOrder: 4,
       lastUpdatedAt: '2026-04-01T00:00:00.000Z', createdAt: '2026-04-01T00:00:00.000Z',
     },
+    {
+      id: 'a5', name: '보험', kind: 'insurance', balance: 2_000_000,
+      isActive: true, sortOrder: 5,
+      lastUpdatedAt: '2026-04-05T00:00:00.000Z', createdAt: '2026-04-01T00:00:00.000Z',
+      insurancePeriodYears: 10, insurancePaidMonths: 10, insuranceDueDay: 25, insuranceMonthlyAmount: 200_000,
+    },
   ];
 
   const baseLiabilities: Liability[] = [
@@ -279,14 +285,15 @@ describe('calcAssetSummary', () => {
 
   it('전체 자산 = 활성 계좌 합산 (비활성 제외)', () => {
     const summary = calcAssetSummary(baseAccounts, []);
-    expect(summary.totalAssets).toBe(4_500_000); // 1M + 3M + 0.5M
+    expect(summary.totalAssets).toBe(6_500_000); // 1M + 3M + 0.5M + 2M
   });
 
-  it('checkingTotal, savingsTotal, investmentTotal 분류', () => {
+  it('checkingTotal, savingsTotal, investmentTotal, insuranceTotal 분류', () => {
     const summary = calcAssetSummary(baseAccounts, []);
     expect(summary.checkingTotal).toBe(1_000_000);
     expect(summary.savingsTotal).toBe(3_000_000);
     expect(summary.investmentTotal).toBe(500_000);
+    expect(summary.insuranceTotal).toBe(2_000_000);
   });
 
   it('totalLiabilities = 활성 부채의 totalBalance 합산', () => {
@@ -296,7 +303,7 @@ describe('calcAssetSummary', () => {
 
   it('netWorth = totalAssets - totalLiabilities', () => {
     const summary = calcAssetSummary(baseAccounts, baseLiabilities);
-    expect(summary.netWorth).toBe(4_500_000 - 10_000_000);
+    expect(summary.netWorth).toBe(6_500_000 - 10_000_000);
   });
 
   it('totalBalance 없는 부채(예: 월세)는 0으로 집계', () => {

@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store/appStore';
 import { localCache } from '../../storage/localCacheImpl';
 import { calcSafetySummary } from '../../domain/safety';
-import { buildSafetyInput } from '../../domain/safetyUtils';
+import { buildSafetyInput, calcAssetSummary } from '../../domain/safetyUtils';
 import { detectReset } from '../../domain/reset';
 import { calcSharedSettlementSummary } from '../../domain/sharedSettlement';
 import { getBudgetPlan, getRecurringItems } from '../../storage/localPlanStore';
@@ -280,6 +280,7 @@ export function HomePageDesktop() {
   const lastSyncedAt  = useAppStore((s) => s.lastSyncedAt);
   const userTier      = useAppStore((s) => s.userTier);
   const accounts      = useAppStore((s) => s.accounts);
+  const liabilities   = useAppStore((s) => s.liabilities);
   const navigate      = useNavigate();
   const isFree        = !hasFeature(userTier, 'record');
 
@@ -512,6 +513,27 @@ export function HomePageDesktop() {
       )}
 
       <div className={styles.scroll}>
+        {/* ── Asset Summary ── */}
+        {(() => {
+          const as = calcAssetSummary(accounts, liabilities);
+          return (
+            <div className={styles.summaryRow}>
+              <div className={styles.summaryCard}>
+                <span className={styles.summaryLabel}>총 자산</span>
+                <span className={styles.summaryValue} style={{ color: 'var(--mint-500)' }}>{fmt(as.totalAssets)}</span>
+              </div>
+              <div className={styles.summaryCard}>
+                <span className={styles.summaryLabel}>총 부채</span>
+                <span className={styles.summaryValue} style={{ color: 'var(--danger)' }}>{fmt(as.totalLiabilities)}</span>
+              </div>
+              <div className={styles.summaryCard}>
+                <span className={styles.summaryLabel}>순자산</span>
+                <span className={styles.summaryValue} style={{ color: as.netWorth >= 0 ? 'var(--text-0)' : 'var(--danger)' }}>{fmt(as.netWorth)}</span>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className={styles.grid3}>
           <div
             className={styles.heroCard}

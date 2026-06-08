@@ -87,6 +87,7 @@ const ACCOUNT_KIND_LABELS: Record<AccountKind, string> = {
   checking:   '입출금',
   savings:    '적금/저축',
   investment: '투자',
+  insurance:  '저축형 보험',
 };
 
 const LIABILITY_KIND_LABELS: Record<LiabilityKind, string> = {
@@ -458,7 +459,7 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
               onKeyDown={(e) => e.key === 'Enter' && openEditAcc(acc)}
             >
               <span className={styles.listItemIcon}>
-                {acc.kind === 'investment' ? '📈' : acc.kind === 'savings' ? '🏦' : '💳'}
+                {acc.kind === 'investment' ? '📈' : acc.kind === 'savings' ? '🏦' : acc.kind === 'insurance' ? '🛡️' : '💳'}
               </span>
               <div className={styles.listItemBody}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -470,7 +471,10 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
                   )}
                 </div>
                 <span className={styles.listItemMeta}>
-                  {ACCOUNT_KIND_LABELS[acc.kind]}{acc.institution ? ` · ${acc.institution}` : ''}
+                  {acc.kind === 'insurance'
+                    ? `저축형 보험 · ${acc.insurancePaidMonths ?? 0}개월 납입 (${acc.insurancePeriodYears ?? 0}년 납) · 매달 ${acc.insuranceDueDay ?? 25}일`
+                    : ACCOUNT_KIND_LABELS[acc.kind]}
+                  {acc.institution ? ` · ${acc.institution}` : ''}
                 </span>
               </div>
               <span className={styles.listItemAmount}>{fmt(acc.balance)}</span>
@@ -532,6 +536,7 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
                 { value: 'checking',   label: '입출금' },
                 { value: 'savings',    label: '적금/저축' },
                 { value: 'investment', label: '투자' },
+                { value: 'insurance',  label: '저축형 보험' },
               ]}
             />
           </div>
@@ -541,6 +546,66 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
             onChange={(e) => updAcc('institution', e.target.value)}
             placeholder="예: 카카오뱅크"
           />
+          {editAcc.kind === 'insurance' && (
+            <>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>납입 기간 (년)</label>
+                <input
+                  type="number"
+                  className={styles.numberInput}
+                  value={editAcc.insurancePeriodYears ?? ''}
+                  min={1}
+                  placeholder="예: 10"
+                  onChange={(e) => updAcc('insurancePeriodYears', e.target.value ? Number(e.target.value) : undefined)}
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>현재 납입 횟수 (개월)</label>
+                <input
+                  type="number"
+                  className={styles.numberInput}
+                  value={editAcc.insurancePaidMonths ?? ''}
+                  min={0}
+                  placeholder="예: 24"
+                  onChange={(e) => {
+                    const months = e.target.value ? Number(e.target.value) : 0;
+                    setEditAcc((p) => {
+                      const next = { ...p, insurancePaidMonths: months };
+                      next.balance = (p.insuranceMonthlyAmount ?? 0) * months;
+                      return next;
+                    });
+                  }}
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>매달 납입일</label>
+                <Select
+                  value={String(editAcc.insuranceDueDay ?? 25)}
+                  onChange={(e) => updAcc('insuranceDueDay', Number(e.target.value))}
+                  options={Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}일` }))}
+                />
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>월 납입금액</label>
+                <AmountInput
+                  value={editAcc.insuranceMonthlyAmount ?? 0}
+                  onChange={(v) => {
+                    setEditAcc((p) => {
+                      const next = { ...p, insuranceMonthlyAmount: v };
+                      next.balance = v * (p.insurancePaidMonths ?? 0);
+                      return next;
+                    });
+                  }}
+                  placeholder="0"
+                />
+              </div>
+              {editAcc.insuranceMonthlyAmount !== undefined && editAcc.insurancePaidMonths !== undefined && (
+                <div style={{ fontSize: '11px', color: 'var(--accent-1)', marginTop: '-8px' }}>
+                  * 월 납입금액과 납입 횟수를 바탕으로 현재 잔액이 자동 계산되었습니다. 필요 시 아래 현재 잔액을 직접 수정하세요.
+                </div>
+              )}
+            </>
+          )}
           <div className={styles.formField}>
             <label className={styles.formLabel}>현재 잔액</label>
             <AmountInput value={editAcc.balance} onChange={(v) => updAcc('balance', v)} placeholder="0" />
@@ -983,6 +1048,27 @@ export function SettingsPageMobile() {
   const [saving, setSaving]                 = useState(false);
   const [saveMsg, setSaveMsg]               = useState('');
 
+  const [expectedIncomeInput, setExpectedIncomeInput] = useState(config.expectedNetIncomeDefault);
+  const [savingsTargetInput, setSavingsTargetInput] = useState(config.savingsTargetDefault);
+  const [monthModeInput, setMonthModeInput] = useState(config.monthMode);
+  const [paydayInput, setPaydayInput] = useState(config.payday);
+  const [budgetSaveMsg, setBudgetSaveMsg] = useState('');
+  const [budgetSaving, setBudgetSaving] = useState(false);
+
+  useEffect(() => {
+    setThresholdInput(String(config.resetThresholdDays));
+    setExpectedIncomeInput(config.expectedNetIncomeDefault);
+    setSavingsTargetInput(config.savingsTargetDefault);
+    setMonthModeInput(config.monthMode);
+    setPaydayInput(config.payday);
+  }, [
+    config.resetThresholdDays,
+    config.expectedNetIncomeDefault,
+    config.savingsTargetDefault,
+    config.monthMode,
+    config.payday
+  ]);
+
   const [codeInput, setCodeInput]   = useState('');
   const [codeStatus, setCodeStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
@@ -1035,6 +1121,30 @@ export function SettingsPageMobile() {
       setSaveMsg('저장되었습니다.');
       setTimeout(() => setSaveMsg(''), 2000);
     } finally { setSaving(false); }
+  };
+
+  const handleBudgetSave = async () => {
+    if (expectedIncomeInput < 0 || savingsTargetInput < 0) {
+      setBudgetSaveMsg('올바른 금액을 입력해주세요.');
+      return;
+    }
+    setBudgetSaving(true);
+    setBudgetSaveMsg('');
+    try {
+      await applyConfig({
+        ...config,
+        expectedNetIncomeDefault: expectedIncomeInput,
+        savingsTargetDefault: savingsTargetInput,
+        monthMode: monthModeInput,
+        payday: paydayInput,
+      });
+      setBudgetSaveMsg('저장되었습니다.');
+      setTimeout(() => setBudgetSaveMsg(''), 2000);
+    } catch (err) {
+      setBudgetSaveMsg('저장에 실패했습니다.');
+    } finally {
+      setBudgetSaving(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -1160,6 +1270,77 @@ export function SettingsPageMobile() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* 임계값 */}
+            <div className={styles.section}>
+              <span className={styles.sectionTitle}>기본 수입 및 저축 목표</span>
+              <p className={styles.sectionDesc}>매월 기준이 되는 예상 실수령액과 저축 목표액, 수입 기준일을 설정합니다.</p>
+              <div className={styles.form} style={{ gap: 'var(--space-sm)' }}>
+                <div className={styles.formField}>
+                  <label className={styles.formLabel}>기본 실수령 수입</label>
+                  <AmountInput
+                    value={expectedIncomeInput}
+                    onChange={(v) => setExpectedIncomeInput(v)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className={styles.formField}>
+                  <label className={styles.formLabel}>기본 저축 목표액</label>
+                  <AmountInput
+                    value={savingsTargetInput}
+                    onChange={(v) => setSavingsTargetInput(v)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className={styles.formField}>
+                  <label className={styles.formLabel}>월 기준 (수입 입금일 기준)</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '4px 0' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)' }}>
+                      <input
+                        type="radio"
+                        name="monthMode"
+                        value="calendar"
+                        checked={monthModeInput === 'calendar'}
+                        onChange={() => setMonthModeInput('calendar')}
+                        style={{ accentColor: 'var(--accent-1)' }}
+                      />
+                      <span>달력 월 (매달 1일 ~ 말일 기준)</span>
+                    </label>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)' }}>
+                      <input
+                        type="radio"
+                        name="monthMode"
+                        value="payday"
+                        checked={monthModeInput === 'payday'}
+                        onChange={() => setMonthModeInput('payday')}
+                        style={{ accentColor: 'var(--accent-1)' }}
+                      />
+                      <span>급여일 기준 (입금일 다음 날부터)</span>
+                    </label>
+                  </div>
+                </div>
+                {monthModeInput === 'payday' && (
+                  <div className={styles.formField}>
+                    <label className={styles.formLabel}>매달 입금일 (급여일)</label>
+                    <Select
+                      value={String(paydayInput)}
+                      options={Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}일` }))}
+                      onChange={(e) => setPaydayInput(Number(e.target.value))}
+                    />
+                  </div>
+                )}
+                <button
+                  className={styles.saveBtn}
+                  onClick={handleBudgetSave}
+                  disabled={budgetSaving}
+                  type="button"
+                  style={{ alignSelf: 'flex-start' }}
+                >
+                  저장
+                </button>
+              </div>
+              {budgetSaveMsg && <p className={styles.saveMsg}>{budgetSaveMsg}</p>}
             </div>
 
             {/* 임계값 */}

@@ -666,4 +666,40 @@
   .savingsStats { grid-template-columns: 1fr; gap: 14px; }
   .savingsDivider { display: none; }
   .savingsTitle { font-size: 20px; }
+  .summaryRow { grid-template-columns: 1fr; gap: 12px; }
 }
+
+/* ══ Asset Summary Card Row ══ */
+.summaryRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.summaryCard {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+.summaryLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.summaryValue {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+

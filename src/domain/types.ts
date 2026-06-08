@@ -15,7 +15,7 @@ export type SplitMode = 'equal' | 'ratio' | 'custom_amount';
 export type SharedExpenseStatus = 'open' | 'partially_settled' | 'settled';
 export type SettlementTransferDirection = 'in' | 'out';
 export type ResetMode = 'detailed_recovery' | 'summary_recovery' | 'restart_today';
-export type AccountKind = 'checking' | 'savings' | 'investment';
+export type AccountKind = 'checking' | 'savings' | 'investment' | 'insurance';
 export type LiabilityKind = 'loan' | 'installment' | 'rent' | 'credit_card_recurring';
 export type RepaymentType = 'annuity' | 'equal_principal' | 'bullet';
 
@@ -152,6 +152,12 @@ export interface Account {
   sortOrder: number;
   lastUpdatedAt: ISODateTime;
   createdAt: ISODateTime;
+
+  // 저축형 보험 (연금보험 포함) 추가 정보
+  insurancePeriodYears?: number;   // 납입 기간 (년)
+  insurancePaidMonths?: number;    // 현재 납입 횟수 (개월)
+  insuranceDueDay?: number;        // 매달 납입일 (일)
+  insuranceMonthlyAmount?: number; // 월 납입금액 (원)
 }
 
 // ─── 부채/고정의무 (Liability) ────────────────────────────────────────────────
@@ -234,6 +240,7 @@ export interface AssetSummary {
   checkingTotal: number;
   savingsTotal: number;
   investmentTotal: number;
+  insuranceTotal: number; // 저축형 보험 합계
   lastUpdatedAt: ISODateTime;
 }
 

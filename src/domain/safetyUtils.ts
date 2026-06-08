@@ -182,8 +182,11 @@ export function calcAssetSummary(accounts: Account[], liabilities: Liability[]):
   const investmentTotal = active
     .filter((a) => a.kind === 'investment')
     .reduce((s, a) => s + a.balance, 0);
+  const insuranceTotal = active
+    .filter((a) => a.kind === 'insurance')
+    .reduce((s, a) => s + a.balance, 0);
 
-  const totalAssets = checkingTotal + savingsTotal + investmentTotal;
+  const totalAssets = checkingTotal + savingsTotal + investmentTotal + insuranceTotal;
 
   const totalLiabilities = liabilities
     .filter((l) => l.isActive)
@@ -206,6 +209,7 @@ export function calcAssetSummary(accounts: Account[], liabilities: Liability[]):
     checkingTotal,
     savingsTotal,
     investmentTotal,
+    insuranceTotal,
     lastUpdatedAt,
   };
 }

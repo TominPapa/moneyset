@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store/appStore';
 import { localCache } from '../../storage/localCacheImpl';
 import { calcSafetySummary } from '../../domain/safety';
-import { buildSafetyInput } from '../../domain/safetyUtils';
+import { buildSafetyInput, calcAssetSummary } from '../../domain/safetyUtils';
 import { detectReset } from '../../domain/reset';
 import type { Transaction, SafetySummary, BudgetPlan } from '../../domain/types';
 import { ROUTES } from '../../app/routes';
@@ -100,6 +100,7 @@ export function HomePageMobile() {
   const userTier      = useAppStore((s) => s.userTier);
   const lastSyncedAt  = useAppStore((s) => s.lastSyncedAt);
   const accounts      = useAppStore((s) => s.accounts);
+  const liabilities   = useAppStore((s) => s.liabilities);
   const navigate      = useNavigate();
   const isFree        = !hasFeature(userTier, 'record');
 
@@ -262,6 +263,27 @@ export function HomePageMobile() {
           </div>
         </div>
       )}
+
+      {/* ── Asset Summary Row ── */}
+      {(() => {
+        const as = calcAssetSummary(accounts, liabilities);
+        return (
+          <div className={styles.summaryRow}>
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryLabel}>총 자산</span>
+              <span className={styles.summaryValue} style={{ color: 'var(--mint-500)' }}>{fmt(as.totalAssets)}</span>
+            </div>
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryLabel}>총 부채</span>
+              <span className={styles.summaryValue} style={{ color: 'var(--danger)' }}>{fmt(as.totalLiabilities)}</span>
+            </div>
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryLabel}>순자산</span>
+              <span className={styles.summaryValue} style={{ color: as.netWorth >= 0 ? 'var(--text-0)' : 'var(--danger)' }}>{fmt(as.netWorth)}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Card 1: Core Remaining Budget ── */}
       <section className={styles.card} onClick={() => navigate(ROUTES.safety)}>
