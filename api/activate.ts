@@ -99,6 +99,31 @@ export default async function handler(
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  // 어드민 리셋 기능 (테스트 데이터 전체 초기화)
+  if (req.body && req.body.action === 'ADMIN_RESET') {
+    const adminCode = (req.body.code || '').trim().toUpperCase();
+    const envSupporterCode = (process.env.VITE_SUPPORTER_CODE || '').trim().toUpperCase();
+    if (!envSupporterCode || adminCode !== envSupporterCode) {
+      return res.status(403).json({ error: '권한이 없습니다.' });
+    }
+
+    const redisUrl = process.env.REDIS_URL;
+    if (redisUrl) {
+      try {
+        const client = new Redis(redisUrl, { connectTimeout: 5000, maxRetriesPerRequest: 1 });
+        const keys = await client.keys('sponsorship:*');
+        if (keys.length > 0) {
+          await client.del(...keys);
+        }
+        await client.quit();
+        return res.status(200).json({ success: true, message: `초기화 완료: ${keys.length}개 키 삭제됨` });
+      } catch (err: any) {
+        return res.status(500).json({ error: `초기화 실패: ${err.message}` });
+      }
+    }
+    return res.status(400).json({ error: '연결된 Redis DB가 없습니다.' });
+  }
+
   const { code, email } = req.body || {};
 
   if (!code || typeof code !== 'string') {
