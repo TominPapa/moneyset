@@ -82,7 +82,7 @@ export function calcNetPayable(
 
   // 상대방이 결제한 경우 → 내가 상대방에게 줘야 함
   if (expense.paidBy === 'counterparty') {
-    return expense.myShareAmount - transferredByMe;
+    return Math.max(0, expense.myShareAmount - transferredByMe);
   }
   return 0;
 }
@@ -129,7 +129,7 @@ export function deriveExpenseStatus(
   const netPayable = calcNetPayable(expense, transfers);
   const remaining = netReceivable + netPayable;
 
-  if (remaining <= 0) return 'settled';
+  if (remaining < 1) return 'settled'; // 1원 미만은 부동소수점 오차로 간주하여 정산 완료 처리
 
   const totalSettled =
     transfers

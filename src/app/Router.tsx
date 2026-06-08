@@ -6,6 +6,8 @@ import {
   RequireNoAuth,
   RequireOnboarding,
   RequireNotOnboarded,
+  RequireFeature,
+  RequireActiveTier,
 } from './RouteGuard';
 import { AppShell } from '../components/layout/AppShell';
 import { OnboardingProvider } from '../pages/onboarding/OnboardingContext';
@@ -19,7 +21,8 @@ function OnboardingOutlet() {
   );
 }
 
-import { LoginPage } from '../pages/auth/LoginPage';
+import { LoginPage }   from '../pages/auth/LoginPage';
+import { UpgradePage } from '../pages/upgrade/UpgradePage';
 
 import { OnboardingStep1Page } from '../pages/onboarding/OnboardingStep1Page';
 import { OnboardingStep2Page } from '../pages/onboarding/OnboardingStep2Page';
@@ -49,13 +52,15 @@ export function AppRouter() {
           element={<RequireNoAuth><LoginPage /></RequireNoAuth>}
         />
 
-        {/* 온보딩 — 인증 필요 + OnboardingProvider 공유 */}
+        {/* 온보딩 — 인증 필요 + OnboardingProvider 공유 + 액티브 티어 필요 */}
         <Route
           element={
             <RequireAuth>
-              <RequireNotOnboarded>
-                <OnboardingOutlet />
-              </RequireNotOnboarded>
+              <RequireActiveTier>
+                <RequireNotOnboarded>
+                  <OnboardingOutlet />
+                </RequireNotOnboarded>
+              </RequireActiveTier>
             </RequireAuth>
           }
         >
@@ -67,20 +72,45 @@ export function AppRouter() {
           <Route path={ROUTES.onboardingStep5} element={<OnboardingStep5Page />} />
         </Route>
 
-        {/* 메인 앱 — 인증 + 온보딩 완료 필요 */}
-        <Route element={<RequireAuth><RequireOnboarding><AppShell /></RequireOnboarding></RequireAuth>}>
+        {/* 업그레이드 페이지 — 온보딩 여부와 상관없이 로그인만 되어 있으면 접근 가능 */}
+        <Route
+          path={ROUTES.upgrade}
+          element={
+            <RequireAuth>
+              <UpgradePage />
+            </RequireAuth>
+          }
+        />
+
+        {/* 메인 앱 — 인증 + 온보딩 완료 + 액티브 티어 필요 */}
+        <Route
+          element={
+            <RequireAuth>
+              <RequireActiveTier>
+                <RequireOnboarding>
+                  <AppShell />
+                </RequireOnboarding>
+              </RequireActiveTier>
+            </RequireAuth>
+          }
+        >
+          {/* 모든 티어 접근 가능 */}
           <Route path={ROUTES.home}         element={<HomePage />} />
-          <Route path={ROUTES.record}       element={<RecordPage />} />
-          <Route path={ROUTES.budget}       element={<BudgetPage />} />
-          <Route path={ROUTES.recurring}    element={<RecurringPage />} />
-          <Route path={ROUTES.debt}         element={<DebtPage />} />
-          <Route path={ROUTES.safety}       element={<SafetyPage />} />
-          <Route path="/stats"              element={<Navigate to={ROUTES.statsMonthly} replace />} />
-          <Route path={ROUTES.statsMonthly} element={<StatsMonthlyPage />} />
-          <Route path={ROUTES.statsAnnual}  element={<StatsAnnualPage />} />
-          <Route path={ROUTES.settlement}   element={<SettlementPage />} />
-          <Route path={ROUTES.reset}        element={<ResetPage />} />
           <Route path={ROUTES.settings}     element={<SettingsPage />} />
+
+          {/* basic+ 전용 */}
+          <Route path={ROUTES.record}    element={<RequireFeature feature="record"><RecordPage /></RequireFeature>} />
+          <Route path={ROUTES.budget}    element={<RequireFeature feature="budget"><BudgetPage /></RequireFeature>} />
+          <Route path={ROUTES.recurring} element={<RequireFeature feature="recurring"><RecurringPage /></RequireFeature>} />
+
+          {/* allinone+ 전용 */}
+          <Route path={ROUTES.debt}         element={<RequireFeature feature="debt"><DebtPage /></RequireFeature>} />
+          <Route path={ROUTES.safety}       element={<RequireFeature feature="safety"><SafetyPage /></RequireFeature>} />
+          <Route path="/stats"              element={<Navigate to={ROUTES.statsMonthly} replace />} />
+          <Route path={ROUTES.statsMonthly} element={<RequireFeature feature="stats"><StatsMonthlyPage /></RequireFeature>} />
+          <Route path={ROUTES.statsAnnual}  element={<RequireFeature feature="stats"><StatsAnnualPage /></RequireFeature>} />
+          <Route path={ROUTES.settlement}   element={<RequireFeature feature="settlement"><SettlementPage /></RequireFeature>} />
+          <Route path={ROUTES.reset}        element={<RequireFeature feature="reset"><ResetPage /></RequireFeature>} />
         </Route>
 
         {/* 기본 redirect */}

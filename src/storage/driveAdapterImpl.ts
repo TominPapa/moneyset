@@ -11,8 +11,9 @@ import type {
   Account,
   Liability,
   BudgetPlan,
+  RecurringItem,
 } from '../domain/types';
-import type { DriveAdapter, Manifest, AppState } from './driveAdapter';
+import type { DriveAdapter, Manifest, AppState, BackupMeta } from './driveAdapter';
 import { DRIVE_FILE_NAMES } from './driveAdapter';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
@@ -211,7 +212,7 @@ export class DriveAdapterImpl implements DriveAdapter {
     return { rootFolderId } as Manifest;
   }
 
-  /** 로그인 최적화: 루트 및 months 폴더의 파일 ID를 일괄 조회해 캐싱 */
+  /** 로그인 최적화: 루트 및 하위 폴더(months, shared, resets)의 파일 ID를 일괄 조회해 캐싱 */
   async warmCache(_ym: string): Promise<void> {
     const rootId = this.rootFolderId;
     if (!rootId) return;
@@ -223,25 +224,42 @@ export class DriveAdapterImpl implements DriveAdapter {
     const rootJson = await rootRes.json() as { files: { id: string; name: string; mimeType: string }[] };
 
     let monthsFolderId: string | null = null;
+    let sharedFolderId: string | null = null;
+    let resetsFolderId: string | null = null;
+
     for (const f of rootJson.files) {
       if (f.mimeType === 'application/vnd.google-apps.folder') {
         this.folderIdCache.set(`${rootId}/${f.name}`, f.id);
         if (f.name === 'months') monthsFolderId = f.id;
+        if (f.name === 'shared') sharedFolderId = f.id;
+        if (f.name === 'resets') resetsFolderId = f.id;
       } else {
         this.fileIdCache.set(`${rootId}/${f.name}`, f.id);
       }
     }
 
-    // months 폴더 파일 목록 조회 (이번 달 transactions, budget plan)
-    if (monthsFolderId) {
-      const monthRes = await this.fetch(
-        `${DRIVE_API}/files?q=${encodeURIComponent(`'${monthsFolderId}' in parents and trashed=false`)}&fields=files(id,name)&pageSize=100`
-      );
-      const monthJson = await monthRes.json() as { files: { id: string; name: string }[] };
-      for (const f of monthJson.files) {
-        this.fileIdCache.set(`${monthsFolderId}/${f.name}`, f.id);
-      }
-    }
+    // 하위 폴더 파일 목록 일괄 조회
+    const fetchPromises: Promise<void>[] = [];
+
+    const cacheFolderFiles = (folderId: string) => {
+      return this.fetch(
+        `${DRIVE_API}/files?q=${encodeURIComponent(`'${folderId}' in parents and trashed=false`)}&fields=files(id,name)&pageSize=100`
+      )
+        .then((res) => res.json())
+        .then((json) => {
+          const files = (json as { files: { id: string; name: string }[] }).files;
+          for (const f of files) {
+            this.fileIdCache.set(`${folderId}/${f.name}`, f.id);
+          }
+        })
+        .catch(() => {});
+    };
+
+    if (monthsFolderId) fetchPromises.push(cacheFolderFiles(monthsFolderId));
+    if (sharedFolderId) fetchPromises.push(cacheFolderFiles(sharedFolderId));
+    if (resetsFolderId) fetchPromises.push(cacheFolderFiles(resetsFolderId));
+
+    await Promise.allSettled(fetchPromises);
   }
 
   // ─── Manifest ─────────────────────────────────────────────────────────────
@@ -341,6 +359,15 @@ export class DriveAdapterImpl implements DriveAdapter {
     await this.writeMonthFile(DRIVE_FILE_NAMES.monthBudgetPlan(ym), 'months', data);
   }
 
+  // ─── 정기지출 항목 (전체) ─────────────────────────────────────────────────
+
+  async readRecurringItems(): Promise<FileEnvelope<RecurringItem[]>> {
+    return this.readMonoFile<RecurringItem[]>(DRIVE_FILE_NAMES.recurringItems, []);
+  }
+  async writeRecurringItems(data: FileEnvelope<RecurringItem[]>): Promise<void> {
+    await this.writeMonoFile(DRIVE_FILE_NAMES.recurringItems, data);
+  }
+
   // ─── AppState (appDataFolder) ─────────────────────────────────────────────
 
   async readAppState(): Promise<AppState | null> {
@@ -389,6 +416,49 @@ export class DriveAdapterImpl implements DriveAdapter {
         body,
       });
     }
+  }
+
+  // ─── 백업 스냅샷 ──────────────────────────────────────────────────────────
+
+  async listBackups(): Promise<BackupMeta[]> {
+    const rootId = this.requireRoot();
+    const backupsFolderId = await this.findFolder('backups', rootId);
+    if (!backupsFolderId) return [];
+
+    const q = encodeURIComponent(`'${backupsFolderId}' in parents and trashed=false`);
+    const res = await this.fetch(
+      `${DRIVE_API}/files?q=${q}&fields=files(id,name,modifiedTime)&orderBy=${encodeURIComponent('name desc')}&pageSize=20`,
+    );
+    const json = await res.json() as { files: { id: string; name: string; modifiedTime: string }[] };
+
+    return json.files
+      .filter((f) => f.name.startsWith('snapshot_') && f.name.endsWith('.json'))
+      .map((f) => ({
+        date: f.name.slice(9, 19),   // 'snapshot_'.length = 9, date = 10 chars (YYYY-MM-DD)
+        fileId: f.id,
+        savedAt: f.modifiedTime,
+      }));
+  }
+
+  async readBackupRaw(fileId: string): Promise<unknown> {
+    return this.readJson<unknown>(fileId);
+  }
+
+  async writeBackup(date: string, data: unknown): Promise<string> {
+    const rootId = this.requireRoot();
+    let backupsFolderId = await this.findFolder('backups', rootId);
+    if (!backupsFolderId) backupsFolderId = await this.createFolder('backups', rootId);
+
+    const fileName = `snapshot_${date}.json`;
+    const existingId = await this.findFile(fileName, backupsFolderId);
+    const fileId = await this.writeJson(fileName, backupsFolderId, data, existingId ?? undefined);
+    // 파일 ID 캐시 갱신
+    this.fileIdCache.set(`${backupsFolderId}/${fileName}`, fileId);
+    return fileId;
+  }
+
+  async deleteBackup(fileId: string): Promise<void> {
+    await this.fetch(`${DRIVE_API}/files/${fileId}`, { method: 'DELETE' });
   }
 
   // ─── 내부 헬퍼 ────────────────────────────────────────────────────────────

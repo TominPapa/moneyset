@@ -389,6 +389,78 @@
   font-weight: 500;
 }
 
+/* ══ 백업 ══════════════════════════════════════════════════════════════════ */
+
+.backupList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.backupItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  gap: var(--space-sm);
+}
+
+.backupDate {
+  font-size: var(--size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.backupTime {
+  font-size: var(--size-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.backupRestoreBtn {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--accent-1);
+  border-radius: var(--radius-sm);
+  color: var(--accent-1);
+  font-size: var(--size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.backupRestoreBtn:hover { background: color-mix(in srgb, var(--accent-1) 10%, transparent); }
+.backupRestoreBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.backupEmpty {
+  font-size: var(--size-sm);
+  color: var(--text-secondary);
+  padding: var(--space-sm) 0;
+}
+
+.backupMsg {
+  margin-top: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--size-sm);
+  font-weight: 500;
+}
+.backupMsg.success {
+  background: color-mix(in srgb, var(--safety-very-safe) 12%, var(--bg-card));
+  border: 1px solid var(--safety-very-safe);
+  color: var(--safety-very-safe);
+}
+.backupMsg.error {
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg-card));
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
 /* ══ 반응형 ════════════════════════════════════════════════════════════════ */
 
 @media (min-width: 768px) {

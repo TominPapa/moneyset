@@ -1,6 +1,6 @@
 # 머니셋 (MoneySET) — 프로젝트 현황 문서
 
-> **최종 업데이트**: 2026-05-12  
+> **최종 업데이트**: 2026-05-14  
 > 세션 압축 시 컨텍스트 복원용 기준 문서. 코드 변경 시 이 파일도 함께 업데이트할 것.
 
 ---
@@ -14,7 +14,7 @@
 | **배포 URL** | https://moneyset.vercel.app |
 | **GitHub** | https://github.com/TominPapa/moneyset.git |
 | **로컬 경로** | `D:\Clode_Budget\reset-budget` |
-| **배포 방식** | GitHub push → Vercel 자동 배포 (vercel.json SPA 리라이트 설정 완료) |
+| **배포 방식** | `npx vercel --prod` CLI 직접 배포 ⚠️ GitHub 자동배포 비활성 |
 | **개발자 이메일** | jungkiwon7@gmail.com |
 
 ### 앱 설명
@@ -137,7 +137,7 @@ appDataFolder/             ← 앱 전용 숨김 폴더
 | 연간 통계 | `/stats/annual` | 연간 그룹 바 차트 + 카테고리 순위 + 안전도 이력 |
 | 공동정산 | `/settlement` | 상대방별 미정산 + 정산 처리 |
 | 리셋 | `/reset` | 3가지 복귀 모드 (상세/합산/오늘부터) |
-| 설정 | `/settings` | 4탭 (일반/카테고리/자산/데이터), CSV/JSON 내보내기 |
+| 설정 | `/settings` | 4탭 (일반/카테고리/자산/데이터), CSV/JSON 내보내기, 부채 폼 고도화 |
 
 ### 컴포넌트
 | 컴포넌트 | 파일 | 비고 |
@@ -160,6 +160,7 @@ appDataFolder/             ← 앱 전용 숨김 폴더
 | `index.html` 메타 | ✅ 완료 | title, lang, meta description, OG 태그 적용 완료 |
 | favicon | Vite 기본 SVG | 머니셋 브랜드 아이콘 교체 |
 | 카카오톡 인앱 브라우저 감지 | 미구현 | UA 감지 후 "외부 브라우저로 열기" 안내 배너 |
+| Vercel-GitHub 자동배포 | ⚠️ 비활성 | GitHub Integration 재설정 필요 — 현재 `npx vercel --prod` 수동 배포 중 |
 
 ### 🟡 기능 (미구현)
 
@@ -183,15 +184,19 @@ appDataFolder/             ← 앱 전용 숨김 폴더
 ## 7. 비즈니스 / 운영 현황
 
 ### 텀블벅 크라우드펀딩
-- **상태**: 진행 중 (~18일 남음, 2026-05-12 기준)
+- **상태**: 진행 중 (~16일 남음, 2026-05-14 기준)
 - **후원자**: 약 35명
 - **과제**: 펀딩 종료 전 트리거 마케팅 필요 (하트/알림 설정자 대상)
 - **전략**: 신기능 발표 공지글 → 재방문 유도
 
-### 신기능 발표 후보: 재무 안전도 공유 카드
+### Phase 9 완료: 부채 관리 고도화 (2026-05-14 발표용)
+- 3가지 상환 방식 자동계산 (원리금균등 / 원금균등 / 만기일시)
+- 실제 이자율 반영한 상환 잔액 차트
+- 텀블벅 업데이트 공지글 작성 완료 (이 세션에서 작성됨)
+
+### 이전 신기능: 재무 안전도 공유 카드 (✅ 완료)
 - 이달의 안전도 점수를 카드 이미지로 생성해 공유
-- SNS 바이럴 유도 + 앱 핵심 기능(안전도) 강조
-- 구현 범위: `html2canvas` or `canvas API`로 카드 렌더 → 이미지 저장/공유
+- SafetyPage "안전도 카드 저장" 버튼 → Canvas PNG 다운로드
 
 ---
 
@@ -204,6 +209,8 @@ Category        — 카테고리 (icon, entryKind, color)
 PaymentMethod   — 결제수단
 Account         — 자산 계좌 (checking/savings/investment)
 Liability       — 부채 (loan/installment/lease/card_bill)
+              └─ repaymentType?: 'annuity' | 'equal_principal' | 'bullet'  ← Phase9 추가
+              └─ interestRate?: number  (연이율 %)                          ← Phase9 추가
 SharedExpense   — 공동지출
 SettlementTransfer — 정산 송금
 ResetSession    — 리셋 세션 (blankPeriod, mode, completedAt)
@@ -212,6 +219,13 @@ BudgetPlan      — 월별 카테고리 예산 계획
 RecurringItem   — 정기지출/구독/할부 항목
 FileEnvelope<T> — Drive 파일 래퍼 (schemaVersion, revisionHint 등)
 AppState        — appDataFolder 저장 상태 (rootFolderId, onboardingCompleted 등)
+```
+
+### 부채 상환 방식 (`RepaymentType`)
+```
+annuity         — 원리금균등상환: 매달 동일 금액 (이자+원금 비율 변화)
+equal_principal — 원금균등상환: 매달 원금 동일, 이자 감소 (첫 달 최대)
+bullet          — 만기일시상환: 매달 이자만, 만기에 원금 일시상환
 ```
 
 ### 안전도 등급

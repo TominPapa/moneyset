@@ -3,6 +3,7 @@
 
 import { useRef, useState } from 'react';
 import type { Transaction, Category } from '../../domain/types';
+import { useAppStore } from '../../app/store/appStore';
 import styles from './TransactionItem.module.css';
 
 interface TransactionItemProps {
@@ -17,6 +18,8 @@ const SWIPE_FULL     = 80; // px — 삭제 버튼 노출 너비
 
 export function TransactionItem({ tx, category, onEdit, onDelete }: TransactionItemProps) {
   const isIncome = tx.entryKind === 'income';
+  const accounts = useAppStore((s) => s.accounts);
+  const account = accounts.find((a) => a.id === tx.accountId);
 
   // ── 스와이프 상태 ────────────────────────────────────────────────────────────
   const [offsetX, setOffsetX]   = useState(0);   // 현재 drag 오프셋 (음수 = 왼쪽)
@@ -120,10 +123,25 @@ export function TransactionItem({ tx, category, onEdit, onDelete }: TransactionI
         {/* 내용 */}
         <div className={styles.info}>
           <span className={styles.title}>{tx.title}</span>
-          <span className={styles.meta}>
-            {category?.name ?? '미분류'}
-            {tx.memo ? ` · ${tx.memo}` : ''}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+            <span className={styles.meta}>
+              {category?.name ?? '미분류'}
+              {tx.memo ? ` · ${tx.memo}` : ''}
+            </span>
+            {account && (
+              <span style={{
+                fontSize: 10,
+                background: account.isBudgetAccount ? 'rgba(63,214,164,0.12)' : 'rgba(255,255,255,0.06)',
+                color: account.isBudgetAccount ? 'var(--mint-300)' : 'var(--color-text-muted)',
+                padding: '1px 5px',
+                borderRadius: 4,
+                fontWeight: 600,
+                lineHeight: 1
+              }}>
+                {account.name}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 금액 */}

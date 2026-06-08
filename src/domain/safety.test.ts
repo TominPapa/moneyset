@@ -356,3 +356,22 @@ describe('calcSafetySummary — 엣지 케이스', () => {
     expect(result.monthlyBudgetBase).toBe(160); // 300+30-120-30-20
   });
 });
+
+// ─── 11. 생활비 계좌 연동 케이스 ──────────────────────────────────────────────────
+
+describe('calcSafetySummary — 생활비 계좌 연동', () => {
+  it('생활비 계좌가 있는 경우: 잔액 합계가 남은 생활비가 됨', () => {
+    const input = makeInput({
+      hasBudgetAccount: true,
+      budgetAccountBalanceTotal: 4500000,
+      livingSpentSoFar: 500000,
+      totalDays: 30,
+      remainingDays: 15,
+    });
+    const result = calcSafetySummary(input);
+    // 남은 생활비 = 생활비 계좌 잔액 합계 (4,500,000)
+    expect(result.monthlySpendableRemaining).toBe(4500000);
+    // 예산 베이스 = 남은 생활비 + 지출 누계 (4,500,000 + 500,000 = 5,000,000)
+    expect(result.monthlyBudgetBase).toBe(5000000);
+  });
+});

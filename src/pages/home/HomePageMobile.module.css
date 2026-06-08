@@ -1,0 +1,484 @@
+/* HomePageMobile — RESET Budget Mobile Layout Styling */
+
+.container {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: var(--bg-0);
+  min-height: 100%;
+}
+
+/* ══ Month Selector ══ */
+.monthSelector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.monthBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  color: var(--text-1);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.monthBtn:active {
+  background: var(--bg-3);
+  transform: scale(0.92);
+}
+
+.monthText {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-0);
+}
+
+/* ══ Supporter Promo Card ══ */
+.promoCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(217, 178, 106, 0.08) 0%, rgba(217, 178, 106, 0.03) 100%);
+  border: 1px solid rgba(217, 178, 106, 0.25);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.promoCard:active {
+  transform: scale(0.98);
+  background: linear-gradient(135deg, rgba(217, 178, 106, 0.12) 0%, rgba(217, 178, 106, 0.06) 100%);
+}
+
+.promoIcon {
+  font-size: 20px;
+}
+
+.promoText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.promoTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold-300);
+}
+
+.promoDesc {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+/* ══ Reset Banner ══ */
+.resetBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(244, 114, 114, 0.08);
+  border: 1px solid rgba(244, 114, 114, 0.2);
+  border-radius: 12px;
+}
+
+.resetTextWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.resetTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.resetDesc {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.resetActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.resetGoBtn {
+  background: var(--danger);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.resetCloseBtn {
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+/* ══ Core Card Layout ══ */
+.card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  transition: transform 0.1s, background-color 0.15s;
+}
+
+.card:active:not(:has(button)):not(:has(input)) {
+  background: var(--bg-2);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cardLabel {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-2);
+  text-transform: uppercase;
+}
+
+.cardHint {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.scoreBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid;
+}
+
+.remainingVal {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text-0);
+  margin-bottom: 6px;
+  font-family: var(--font-sans);
+}
+
+.statusDesc {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.miniStats {
+  display: flex;
+  align-items: center;
+  background: var(--bg-2);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.miniStat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.miniLabel {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.miniVal {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.miniDivider {
+  width: 1px;
+  height: 20px;
+  background-color: var(--line);
+  margin: 0 12px;
+}
+
+/* ══ ProgressBar Styles ══ */
+.barTrack {
+  background: var(--bg-3);
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.barFill {
+  height: 100%;
+  transition: width 0.5s ease-out;
+}
+
+/* ══ Today Section ══ */
+.todayExpense {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  font-family: var(--font-sans);
+}
+
+.limitBarSection {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.limitRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.limitLabel {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.limitVal {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-1);
+}
+
+/* ══ Cashflow Section ══ */
+.cashflowRow {
+  display: flex;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.cfCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cfLabel {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.cfInc {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mint-300);
+}
+
+.cfExp {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.cfNet {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cfDivider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--line);
+  margin: 0 8px;
+}
+
+/* ══ Savings Section ══ */
+.savingsGoalText {
+  font-size: 14px;
+  color: var(--text-1);
+  margin-top: 6px;
+  margin-bottom: 8px;
+}
+
+.mintText {
+  color: var(--mint-300);
+}
+
+.goalSub {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.savingsStatusBadge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.badgeOn {
+  background-color: rgba(63, 214, 164, 0.12);
+  color: var(--mint-300);
+}
+
+.badgeOff {
+  background-color: rgba(217, 178, 106, 0.12);
+  color: var(--gold-300);
+}
+
+/* ══ Weekly List ══ */
+.weeklyList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.weeklyItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.weeklyItemActive {
+  background-color: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.weeklyLabel {
+  font-size: 11px;
+  color: var(--text-2);
+  min-width: 36px;
+}
+
+.weeklyProgressWrap {
+  flex: 1;
+}
+
+.weeklySpentText {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-1);
+  min-width: 44px;
+  text-align: right;
+}
+
+/* ══ Recent Transactions ══ */
+.viewAllBtn {
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: var(--mint-300);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+}
+
+.emptyText {
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+  padding: 24px 0;
+}
+
+.txList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.txItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.txLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.catDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.txTitleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.txTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-0);
+}
+
+.txMeta {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.txAmount {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ══ Floating Action Button (FAB) ══ */
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--mint-500);
+  color: #000; /* 어두운 테마 대비 눈에 잘 띄게 */
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(63, 214, 164, 0.4);
+  cursor: pointer;
+  z-index: 99;
+  transition: transform 0.1s, background-color 0.15s;
+}
+
+.fab:active {
+  transform: scale(0.9);
+  background-color: var(--mint-600);
+}

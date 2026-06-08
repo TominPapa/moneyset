@@ -14,7 +14,20 @@ import type {
 } from '../domain/types';
 import { localCache } from '../storage/localCacheImpl';
 import { saveRecurringItems, saveBudgetPlan } from '../storage/localPlanStore';
-import { defaultCategories, defaultPaymentMethods, defaultSafetyThresholds } from '../domain/fixtures';
+import { defaultCategories, defaultPaymentMethods, defaultSafetyThresholds, defaultAppConfig } from '../domain/fixtures';
+import { driveAdapter } from '../storage/driveAdapterImpl';
+
+// ─── 헬퍼 ─────────────────────────────────────────────────────────────────────
+
+function makeEnvelope<T>(fileType: string, data: T) {
+  return {
+    schemaVersion: '1.0',
+    fileType,
+    updatedAt: new Date().toISOString(),
+    revisionHint: crypto.randomUUID(),
+    data,
+  };
+}
 
 // ─── 헬퍼 ─────────────────────────────────────────────────────────────────────
 
@@ -394,13 +407,13 @@ export async function insertSeedData(): Promise<void> {
     createdAt: isoNow(),
     updatedAt: isoNow(),
   };
-  saveBudgetPlan(budgetPlan);
+  await saveBudgetPlan(budgetPlan);
 
   // 이전 달 예산 계획 추가 (네비게이션 시 미설정 없도록)
   // pm1(scale 0.80): 식비 74%, 교통 82%, 쇼핑 88% — 전월 대비 양호
   // pm2(scale 0.90): 식비 85%, 교통 93%, 쇼핑 99% — 빡빡했던 달
   // pm3(scale 0.74): 전반적으로 안정적
-  saveBudgetPlan({
+  await saveBudgetPlan({
     id: 'bp_seed_pm1',
     targetMonth: ym(pm1.y, pm1.m),
     totalBudgetAmount: 1_200_000,
@@ -408,7 +421,7 @@ export async function insertSeedData(): Promise<void> {
     createdAt: isoNow(),
     updatedAt: isoNow(),
   });
-  saveBudgetPlan({
+  await saveBudgetPlan({
     id: 'bp_seed_pm2',
     targetMonth: ym(pm2.y, pm2.m),
     totalBudgetAmount: 1_200_000,
@@ -416,7 +429,7 @@ export async function insertSeedData(): Promise<void> {
     createdAt: isoNow(),
     updatedAt: isoNow(),
   });
-  saveBudgetPlan({
+  await saveBudgetPlan({
     id: 'bp_seed_pm3',
     targetMonth: ym(pm3.y, pm3.m),
     totalBudgetAmount: 1_200_000,
@@ -624,7 +637,7 @@ export async function insertSeedData(): Promise<void> {
     },
   ];
 
-  saveRecurringItems(recurringItems);
+  await saveRecurringItems(recurringItems);
 
   // ─── AppState 업데이트 (onboarding 완료로) ────────────────────────────────
 
@@ -636,6 +649,66 @@ export async function insertSeedData(): Promise<void> {
     lastSyncAt: isoNow(),
     installId: 'seed-install-id',
   });
+
+  // 구글 드라이브 동기화 연동
+  if (driveAdapter.isAuthenticated()) {
+    try {
+      await driveAdapter.writeConfig(makeEnvelope('config.json', config));
+      await driveAdapter.writeAccounts(makeEnvelope('accounts.json', accounts));
+      await driveAdapter.writeLiabilities(makeEnvelope('liabilities.json', liabilities));
+      await driveAdapter.writeRecurringItems(makeEnvelope('recurring-items.json', recurringItems));
+
+      // 월별 거래 내역, 공동지출, 예산 계획 동기화
+      const months = [ym(curY, curM), ym(pm1.y, pm1.m), ym(pm2.y, pm2.m), ym(pm3.y, pm3.m)];
+      
+      const budgetPlansMap: Record<string, BudgetPlan> = {
+        [ym(curY, curM)]: budgetPlan,
+        [ym(pm1.y, pm1.m)]: {
+          id: 'bp_seed_pm1',
+          targetMonth: ym(pm1.y, pm1.m),
+          totalBudgetAmount: 1_200_000,
+          items: makeBudgetItems(),
+          createdAt: isoNow(),
+          updatedAt: isoNow(),
+        },
+        [ym(pm2.y, pm2.m)]: {
+          id: 'bp_seed_pm2',
+          targetMonth: ym(pm2.y, pm2.m),
+          totalBudgetAmount: 1_200_000,
+          items: makeBudgetItems(),
+          createdAt: isoNow(),
+          updatedAt: isoNow(),
+        },
+        [ym(pm3.y, pm3.m)]: {
+          id: 'bp_seed_pm3',
+          targetMonth: ym(pm3.y, pm3.m),
+          totalBudgetAmount: 1_200_000,
+          items: makeBudgetItems(),
+          createdAt: isoNow(),
+          updatedAt: isoNow(),
+        },
+      };
+
+      for (const m of months) {
+        const txs = await localCache.getTransactions(m);
+        await driveAdapter.writeTransactions(m, makeEnvelope(`months/${m}.transactions.json`, txs));
+
+        const ses = await localCache.getSharedExpenses(m);
+        if (ses && ses.length > 0) {
+          await driveAdapter.writeSharedExpenses(m, makeEnvelope(`shared/${m}.shared-expenses.json`, ses));
+        }
+
+        const bp = budgetPlansMap[m];
+        if (bp) {
+          await driveAdapter.writeBudgetPlan(m, makeEnvelope(`months/${m}.budget.json`, bp));
+        }
+      }
+
+      console.log('[SeedData] Synced all seed data to Google Drive.');
+    } catch (err) {
+      console.error('[SeedData] Failed to sync seed data to Google Drive:', err);
+    }
+  }
 
   console.log('[SeedData] 시드 데이터 삽입 완료!');
 }
@@ -654,6 +727,45 @@ export async function clearSeedData(): Promise<void> {
     }
   }
   keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+  // 구글 드라이브 초기화 연동
+  if (driveAdapter.isAuthenticated()) {
+    try {
+      await driveAdapter.writeConfig(makeEnvelope('config.json', defaultAppConfig));
+      await driveAdapter.writeAccounts(makeEnvelope('accounts.json', []));
+      await driveAdapter.writeLiabilities(makeEnvelope('liabilities.json', []));
+      await driveAdapter.writeRecurringItems(makeEnvelope('recurring-items.json', []));
+      await driveAdapter.writeSettlementTransfers(makeEnvelope('shared/settlement-transfers.json', []));
+      await driveAdapter.writeResetSessions(makeEnvelope('resets/reset-sessions.json', []));
+
+      // 최근 4개 월 구글 드라이브 데이터 초기화
+      const now = new Date();
+      const curY = now.getFullYear();
+      const curM = now.getMonth() + 1; // 1-based
+
+      function prevMonth(offset: number): { y: number; m: number } {
+        let m = curM - offset;
+        let y = curY;
+        while (m <= 0) { m += 12; y -= 1; }
+        return { y, m };
+      }
+
+      const pm1 = prevMonth(1);
+      const pm2 = prevMonth(2);
+      const pm3 = prevMonth(3);
+      const months = [ym(curY, curM), ym(pm1.y, pm1.m), ym(pm2.y, pm2.m), ym(pm3.y, pm3.m)];
+
+      for (const m of months) {
+        await driveAdapter.writeTransactions(m, makeEnvelope(`months/${m}.transactions.json`, []));
+        await driveAdapter.writeSharedExpenses(m, makeEnvelope(`shared/${m}.shared-expenses.json`, []));
+        await driveAdapter.writeBudgetPlan(m, makeEnvelope(`months/${m}.budget.json`, null as any));
+      }
+
+      console.log('[SeedData] Cleared all Google Drive data.');
+    } catch (err) {
+      console.error('[SeedData] Failed to clear Google Drive data:', err);
+    }
+  }
 
   console.log('[SeedData] 시드 데이터 전체 삭제 완료.');
 }

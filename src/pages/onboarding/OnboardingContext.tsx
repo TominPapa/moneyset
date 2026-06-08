@@ -152,9 +152,10 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         currentLedgerRootFolderId: cachedState?.currentLedgerRootFolderId ?? '',
         onboardingCompleted: true,
         lastOpenedRoute: '/',
-        localCacheVersion: 1,
+        localCacheVersion: cachedState?.localCacheVersion ?? 1,   // ← 기존 버전 보존 (롤백 방지)
         lastSyncAt: now,
         installId: cachedState?.installId ?? crypto.randomUUID(),
+        userTier: cachedState?.userTier ?? 'free',   // ← 기존 tier 보존 (온보딩 재수행 시 초기화 방지)
       };
 
       await Promise.all([

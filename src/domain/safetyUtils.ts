@@ -87,6 +87,8 @@ export function buildSafetyInput(
   transactions: Transaction[],
   config: AppConfig,
   today: Date = new Date(),
+  overrideMonthlyBudgetBase?: number,
+  accounts: Account[] = [],
 ): SafetyInput {
   const todayStr = toLocalDateStr(today);
   const { start, end } = getBudgetPeriod(today, config);
@@ -107,10 +109,10 @@ export function buildSafetyInput(
   const livingSpentSoFar = transactions
     .filter(
       (t) =>
-        t.entryKind === 'expense' &&
-        categoryGroup.get(t.categoryId) === 'living' &&
-        t.date >= periodStartStr &&
-        t.date <= todayStr,
+         t.entryKind === 'expense' &&
+         categoryGroup.get(t.categoryId) === 'living' &&
+         t.date >= periodStartStr &&
+         t.date <= todayStr,
     )
     .reduce((s, t) => s + t.amount, 0);
 
@@ -118,10 +120,10 @@ export function buildSafetyInput(
   const weeklyLivingSpent = transactions
     .filter(
       (t) =>
-        t.entryKind === 'expense' &&
-        categoryGroup.get(t.categoryId) === 'living' &&
-        t.date >= weekStartStr &&
-        t.date <= todayStr,
+         t.entryKind === 'expense' &&
+         categoryGroup.get(t.categoryId) === 'living' &&
+         t.date >= weekStartStr &&
+         t.date <= todayStr,
     )
     .reduce((s, t) => s + t.amount, 0);
 
@@ -129,14 +131,21 @@ export function buildSafetyInput(
     .filter((r) => r.isActive)
     .reduce((s, r) => s + r.amount, 0);
 
+  const endStr = toLocalDateStr(end);
+  // 예산 기간 내의 미납 필수지출만 포함 (다음 달 납부 예정분 이중 차감 방지)
   const plannedRequiredTotal = config.plannedRequiredExpenses
-    .filter((p) => !p.isPaid)
+    .filter((p) => !p.isPaid && p.dueDate >= periodStartStr && p.dueDate <= endStr)
     .reduce((s, p) => s + p.amount, 0);
 
   // 이번 주 미납 예정 필수지출
   const plannedRequiredThisWeek = config.plannedRequiredExpenses
     .filter((p) => !p.isPaid && p.dueDate >= weekStartStr && p.dueDate <= weekEndStr)
     .reduce((s, p) => s + p.amount, 0);
+
+  // 생활비 통장(isBudgetAccount) 필터링 및 합계 계산
+  const budgetAccounts = accounts.filter((a) => a.isActive && a.isBudgetAccount);
+  const hasBudgetAccount = budgetAccounts.length > 0;
+  const budgetAccountBalanceTotal = budgetAccounts.reduce((sum, a) => sum + a.balance, 0);
 
   return {
     expectedNetIncome: config.expectedNetIncomeDefault,
@@ -153,6 +162,9 @@ export function buildSafetyInput(
     weeklyLivingSpent,
     plannedRequiredThisWeek,
     thresholds: config.safetyThresholds,
+    overrideMonthlyBudgetBase,
+    budgetAccountBalanceTotal,
+    hasBudgetAccount,
   };
 }
 

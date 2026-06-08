@@ -123,6 +123,7 @@ function buildDailyMap(transactions: Transaction[]): Map<string, { expense: numb
 function DonutChart({ cats }: { cats: CategoryStat[] }) {
   const size = 240; const r = 90; const cx = size / 2; const cy = size / 2;
   const total = cats.reduce((s, c) => s + c.total, 0);
+  if (total <= 0) return null; // 지출 합계 0이면 NaN arc 방지
   let acc = 0;
   const arcs = cats.map((c) => {
     const start = (acc / total) * Math.PI * 2;
@@ -144,7 +145,7 @@ function DonutChart({ cats }: { cats: CategoryStat[] }) {
   });
   return (
     <div className={styles.donutWrap}>
-      <div style={{ position: 'relative', flexShrink: 0 }}>
+      <div style={{ position: 'relative', flexShrink: 0, width: size, height: size, margin: '0 auto' }}>
         <svg width={size} height={size}>{arcs}
           <circle cx={cx} cy={cy} r={54} fill="var(--bg-2)"/>
         </svg>
@@ -251,6 +252,7 @@ export function StatsMonthlyPage() {
   const config      = useAppStore(s => s.config);
   const activeMonth = useAppStore(s => s.activeMonth);
   const setActiveMonth = useAppStore(s => s.setActiveMonth);
+  const lastSyncedAt = useAppStore(s => s.lastSyncedAt);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [prevTransactions, setPrevTransactions] = useState<Transaction[]>([]);
@@ -259,7 +261,7 @@ export function StatsMonthlyPage() {
   useEffect(() => {
     localCache.getTransactions(activeMonth).then(setTransactions);
     localCache.getTransactions(prevYM(activeMonth)).then(setPrevTransactions);
-  }, [activeMonth]);
+  }, [activeMonth, lastSyncedAt]);
 
   // Aggregate
   const totalExpense = transactions.filter(t => t.entryKind === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -287,7 +289,8 @@ export function StatsMonthlyPage() {
   const elapsedDays = (today.getFullYear() === cy && today.getMonth() + 1 === cm)
     ? today.getDate() : daysInMonth;
   const avgDailyAmt = elapsedDays > 0 ? Math.round(totalExpense / elapsedDays) : 0;
-  const zeroDays = dailyExpenses.filter(d => d.amount === 0).length;
+  // 무지출일: 미래 날짜(아직 경과하지 않은 날)는 제외
+  const zeroDays = dailyExpenses.filter(d => d.day <= elapsedDays && d.amount === 0).length;
 
   // Day-of-week analysis (0=Sun ... 6=Sat)
   const DOW_KO = ['일','월','화','수','목','금','토'];
@@ -300,8 +303,10 @@ export function StatsMonthlyPage() {
     dowCount[dow]++;
   }
   const dowAvg = dowSpend.map((s, i) => (dowCount[i] > 0 ? s / dowCount[i] : 0));
-  const maxDow = Math.max(1, ...dowAvg);
-  const maxDowIdx = dowAvg.indexOf(Math.max(...dowAvg));
+  const rawMaxDow = Math.max(0, ...dowAvg);
+  const maxDow = Math.max(1, rawMaxDow); // 바 높이 계산용 분모
+  // 지출이 없으면 -1로 설정해 강조 없음 처리 (0 대신 일요일이 강조되는 오류 방지)
+  const maxDowIdx = rawMaxDow > 0 ? dowAvg.indexOf(rawMaxDow) : -1;
 
   // Payment method — paymentMethodId로 이름 조회
   const pmLookup = new Map(config.paymentMethods.map(p => [p.id, p.name]));
@@ -324,7 +329,8 @@ export function StatsMonthlyPage() {
   }
   const momList = categoryStats.slice(0, 4).map(c => {
     const prev = prevCatMap.get(c.catId) ?? 0;
-    const delta = prev > 0 ? Math.round((c.total - prev) / prev * 100) : 0;
+    // 전월 지출 0이면 null로 표시 ("▼ 0%"가 아닌 "신규"로 구분)
+    const delta = prev > 0 ? Math.round((c.total - prev) / prev * 100) : null;
     return { l: c.category?.name ?? '기타', d: delta, n: c.total };
   });
 
@@ -427,11 +433,20 @@ export function StatsMonthlyPage() {
           </div>
           <DailyBarChart data={dailyExpenses}/>
           <div className={styles.barAxisLabels}>
-            <span>{monthLabel.replace('.', '.0').slice(0, 5)}01</span>
-            <span>{`${monthLabel.slice(0,5)}08`}</span>
-            <span>{`${monthLabel.slice(0,5)}15`}</span>
-            <span>{`${monthLabel.slice(0,5)}22`}</span>
-            <span>{`${monthLabel.slice(0,5)}${daysInMonth}`}</span>
+            {/* activeMonth = "YYYY-MM" → 월.일 형식으로 표시 */}
+            {(() => {
+              const mm = activeMonth.slice(5); // "05"
+              const dd = (d: number) => String(d).padStart(2, '0');
+              return (
+                <>
+                  <span>{mm}.01</span>
+                  <span>{mm}.08</span>
+                  <span>{mm}.15</span>
+                  <span>{mm}.22</span>
+                  <span>{mm}.{dd(daysInMonth)}</span>
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -488,9 +503,13 @@ export function StatsMonthlyPage() {
                 <span className={styles.momCat}>{r.l}</span>
                 <span className={styles.momAmt}>{fmt(r.n)}</span>
                 {prevCatMap.size > 0 && (
-                  <span className={styles.momDelta} style={{ color: r.d > 0 ? 'var(--danger)' : 'var(--mint-300)' }}>
-                    {r.d > 0 ? '▲' : '▼'} {Math.abs(r.d)}%
-                  </span>
+                  r.d !== null ? (
+                    <span className={styles.momDelta} style={{ color: r.d > 0 ? 'var(--danger)' : r.d < 0 ? 'var(--mint-300)' : 'var(--text-2)' }}>
+                      {r.d > 0 ? '▲' : r.d < 0 ? '▼' : '─'} {Math.abs(r.d)}%
+                    </span>
+                  ) : (
+                    <span className={styles.momDelta} style={{ color: 'var(--text-3)', fontSize: 10 }}>신규</span>
+                  )
                 )}
               </div>
             )) : <div className={styles.empty}>데이터 없음</div>}

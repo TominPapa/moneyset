@@ -1,0 +1,351 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--bg-1);
+  color: var(--text-1);
+  padding: 16px;
+  padding-bottom: 96px; /* FAB와 하단 네비 바 확보 */
+  box-sizing: border-box;
+}
+
+/* 헤더 */
+.header {
+  margin-bottom: 16px;
+}
+
+.headerTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pageTitle {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.monthNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-2);
+  padding: 4px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.navBtn {
+  background: none;
+  border: none;
+  color: var(--text-2);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.navBtn:active {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+
+.monthLabel {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* 요약 카드 */
+.summaryCard {
+  background: linear-gradient(135deg, var(--bg-2) 0%, var(--bg-3) 100%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.summaryGrid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.summaryItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summaryItem:last-child {
+  align-items: flex-end;
+}
+
+.summaryLabel {
+  font-size: 11px;
+  color: var(--text-2);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summaryValIncome {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mint-400);
+}
+
+.summaryValExpense {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.summaryDivider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border);
+  margin: 0 16px;
+}
+
+.netSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+}
+
+.netLabel {
+  font-size: 13px;
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.netValPlus {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--mint-400);
+}
+
+.netValMinus {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--danger);
+}
+
+/* 가로 스크롤 카테고리 필터 */
+.catChipsWrapper {
+  margin-left: -16px;
+  margin-right: -16px;
+  margin-bottom: 16px;
+  padding: 0 16px;
+  overflow: hidden;
+}
+
+.catChipsScroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none; /* Firefox */
+}
+
+.catChipsScroll::-webkit-scrollbar {
+  display: none; /* Safari & Chrome */
+}
+
+.catChip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.catChipActive {
+  background: var(--mint-500);
+  border-color: var(--mint-500);
+  color: #000;
+}
+
+.catIcon {
+  font-size: 12px;
+}
+
+.catAmt {
+  font-size: 10px;
+  opacity: 0.8;
+  font-family: var(--font-mono);
+}
+
+/* 필터 탭 (전체/지출/수입) */
+.filterTabs {
+  display: flex;
+  background: var(--bg-2);
+  border-radius: 12px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.filterTab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  padding: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 9px;
+  transition: all 0.2s;
+}
+
+.filterTabActive {
+  background: var(--bg-3);
+  color: var(--text-1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 메인 리스트 */
+.mainContent {
+  flex: 1;
+}
+
+.txList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dateGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dateHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.dateLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.dateTotalPlus {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mint-400);
+}
+
+.dateTotalMinus {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.dateGroupItems {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dateGroupItems > div {
+  border-bottom: 1px solid var(--border);
+}
+
+.dateGroupItems > div:last-child {
+  border-bottom: none;
+}
+
+/* Empty State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-2);
+}
+
+.emptyState p {
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.addIntroBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--mint-500);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+  cursor: pointer;
+}
+
+.addIntroBtn:active {
+  opacity: 0.9;
+}
+
+/* FAB */
+.fab {
+  position: fixed;
+  bottom: calc(64px + env(safe-area-inset-bottom, 16px));
+  right: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  background: var(--mint-500);
+  color: #000;
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 240, 180, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.fab:active {
+  transform: scale(0.92);
+  background: var(--mint-400);
+}

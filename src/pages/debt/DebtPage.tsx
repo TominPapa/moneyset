@@ -39,8 +39,9 @@ function effectiveMonths(item: Liability): number {
 function effectivePayoffDate(item: Liability): string {
   const months = effectiveMonths(item);
   if (months <= 0) return '—';
-  const d = new Date();
-  d.setMonth(d.getMonth() + months);
+  // 1일 기준으로 생성해야 setMonth에 의한 월말 돌변(예: 1월 31일 + 1개월 → 3월 2일) 방지
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + months, 1);
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
 }
 
@@ -57,27 +58,6 @@ function scoreLevel(score: number): { label: string; color: string } {
   if (score >= 45) return { label: '주의', color: '#E8B86A' };
   if (score >= 25) return { label: '위험', color: '#F47272' };
   return { label: '심각', color: '#FF3B3B' };
-}
-
-// ─── 잠금 오버레이 ─────────────────────────────────────────────────────────────
-
-function LockedSection({ onUnlock }: { onUnlock: () => void }) {
-  return (
-    <div className={styles.lockedSection}>
-      <div className={styles.lockedBlur} />
-      <div className={styles.lockedContent}>
-        <div className={styles.lockedIcon}>✦</div>
-        <div className={styles.lockedTitle}>후원자 전용 기능</div>
-        <div className={styles.lockedDesc}>
-          부채 비율 분석은<br />
-          텀블벅 후원자에게 제공되는 기능입니다.
-        </div>
-        <button className={styles.lockedBtn} type="button" onClick={onUnlock}>
-          후원자 코드 입력하기
-        </button>
-      </div>
-    </div>
-  );
 }
 
 // ─── DebtHealthGauge ──────────────────────────────────────────────────────────
@@ -513,7 +493,10 @@ function DebtRatioGauge({ liabilities, accounts }: {
 }) {
   const totalDebt = liabilities.filter(l => l.isActive && l.totalBalance).reduce((s, l) => s + (l.totalBalance ?? 0), 0);
   const totalAssets = accounts.filter(a => a.isActive).reduce((s, a) => s + a.balance, 0);
-  const ratio = totalAssets > 0 ? Math.min(100, Math.round((totalDebt / totalAssets) * 100)) : 0;
+  // 자산=0이고 부채>0이면 위험 최대(100%), 자산=0이고 부채=0이면 0%
+  const ratio = totalAssets > 0
+    ? Math.min(100, Math.round((totalDebt / totalAssets) * 100))
+    : totalDebt > 0 ? 100 : 0;
   const isHealthy = ratio < 30;
   const isWarning = ratio >= 30 && ratio < 60;
 
@@ -578,14 +561,7 @@ type SortMode = 'amount' | 'dueDay' | 'payoff';
 export function DebtPage() {
   const liabilities = useAppStore(s => s.liabilities);
   const accounts = useAppStore(s => s.accounts);
-  const userTier = useAppStore(s => s.userTier);
-  const isSupporter = userTier === 'supporter';
-  const unlockSupporter = useAppStore(s => s.unlockSupporter);
-
-  const [showUnlockModal, setShowUnlockModal] = useState(false);
-  const [unlockCode, setUnlockCode] = useState('');
-  const [unlockError, setUnlockError] = useState('');
-  const [unlocking, setUnlocking] = useState(false);
+  // 라우터에서 RequireFeature('debt')로 게이팅 완료 → 이 페이지에 도달한 사용자는 권한 있음
   const [sortMode, setSortMode] = useState<SortMode>('amount');
 
   const active = liabilities.filter(l => l.isActive);
@@ -619,18 +595,6 @@ export function DebtPage() {
   const debtRatioPct = totalAssets > 0 ? Math.round((totalBalance / totalAssets) * 100) : 0;
   const debtCount = active.length;
 
-  async function handleUnlock() {
-    setUnlocking(true);
-    setUnlockError('');
-    const ok = await unlockSupporter(unlockCode);
-    setUnlocking(false);
-    if (ok) {
-      setShowUnlockModal(false);
-      setUnlockCode('');
-    } else {
-      setUnlockError('코드가 올바르지 않습니다. 텀블벅 메시지를 확인해주세요.');
-    }
-  }
 
   return (
     <div className={styles.page}>
@@ -641,9 +605,6 @@ export function DebtPage() {
           <div className={styles.topSubtitle}>DEBT MANAGEMENT</div>
           <div className={styles.topTitle}>부채 관리</div>
         </div>
-        {isSupporter && (
-          <div className={styles.tierBadge}>✦ 후원자</div>
-        )}
       </div>
 
       <div className={styles.scroll}>
@@ -700,7 +661,12 @@ export function DebtPage() {
           <KpiCard
             label="완납까지"
             value={payoffLabel}
-            hint={maxMonths > 0 ? effectivePayoffDate(active.reduce((a, b) => effectiveMonths(a) > effectiveMonths(b) ? a : b, active[0])) + ' 완납 예정' : '상환 기간 미설정'}
+            hint={(() => {
+              if (!active.length) return '상환 기간 미설정';
+              const longestItem = active.reduce((a, b) => effectiveMonths(a) > effectiveMonths(b) ? a : b);
+              const payoff = effectivePayoffDate(longestItem);
+              return payoff !== '—' ? payoff + ' 완납 예정' : '상환 기간 미설정';
+            })()}
           />
         </div>
 
@@ -764,16 +730,8 @@ export function DebtPage() {
 
             {/* 부채/자산 비율 (supporter 전용) */}
             <div className={styles.section} style={{ position: 'relative' }}>
-              <div className={styles.sectionTitle}>
-                부채 / 자산 비율
-                {!isSupporter && <span className={styles.lockTag}>✦ 후원자 전용</span>}
-              </div>
-              <div style={{ opacity: isSupporter ? 1 : 0.2, pointerEvents: isSupporter ? 'auto' : 'none' }}>
-                <DebtRatioGauge liabilities={liabilities} accounts={accounts} />
-              </div>
-              {!isSupporter && (
-                <LockedSection onUnlock={() => setShowUnlockModal(true)} />
-              )}
+              <div className={styles.sectionTitle}>부채 / 자산 비율</div>
+              <DebtRatioGauge liabilities={liabilities} accounts={accounts} />
             </div>
           </div>
         </div>
@@ -787,39 +745,6 @@ export function DebtPage() {
 
       </div>
 
-      {/* ── 코드 입력 모달 ── */}
-      {showUnlockModal && (
-        <div className={styles.modalBackdrop} onClick={() => setShowUnlockModal(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalTitle}>✦ 후원자 코드 입력</div>
-            <p className={styles.modalDesc}>
-              텀블벅 후원자에게 발송된 코드를 입력하면<br />
-              부채 상세 분석 기능이 활성화됩니다.
-            </p>
-            <input
-              className={styles.codeInput}
-              type="text"
-              placeholder="코드를 입력하세요"
-              value={unlockCode}
-              onChange={e => { setUnlockCode(e.target.value.toUpperCase()); setUnlockError(''); }}
-              onKeyDown={e => e.key === 'Enter' && handleUnlock()}
-              autoFocus
-            />
-            {unlockError && <p className={styles.codeError}>{unlockError}</p>}
-            <div className={styles.modalActions}>
-              <button className={styles.modalCancelBtn} type="button" onClick={() => setShowUnlockModal(false)}>취소</button>
-              <button
-                className={styles.modalConfirmBtn}
-                type="button"
-                onClick={handleUnlock}
-                disabled={unlocking || !unlockCode.trim()}
-              >
-                {unlocking ? '확인 중…' : '활성화'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

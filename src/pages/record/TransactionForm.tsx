@@ -5,12 +5,15 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { AmountInput } from '../../components/ui/AmountInput';
 import { Button } from '../../components/ui/Button';
+import { localCache } from '../../storage/localCacheImpl';
 import type {
   Transaction,
   EntryKind,
   Category,
   PaymentMethod,
   Counterparty,
+  SplitMode,
+  Account,
 } from '../../domain/types';
 import styles from './TransactionForm.module.css';
 
@@ -21,7 +24,14 @@ interface TransactionFormProps {
   categories: Category[];
   paymentMethods: PaymentMethod[];
   counterparties: Counterparty[];
-  onSave: (tx: Transaction, counterpartyId?: string) => Promise<void>;
+  accounts: Account[];
+  onSave: (
+    tx: Transaction,
+    counterpartyId?: string,
+    splitMode?: SplitMode,
+    myRatio?: number,
+    myCustomAmount?: number
+  ) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
 }
 
@@ -46,6 +56,7 @@ export function TransactionForm({
   categories,
   paymentMethods,
   counterparties,
+  accounts,
   onSave,
   onDelete,
 }: TransactionFormProps) {
@@ -57,20 +68,50 @@ export function TransactionForm({
   const [title, setTitle] = useState(initial?.title ?? '');
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? '');
   const [paymentMethodId, setPaymentMethodId] = useState(initial?.paymentMethodId ?? '');
+  const [accountId, setAccountId] = useState(initial?.accountId ?? '');
   const [memo, setMemo] = useState(initial?.memo ?? '');
   const [isShared, setIsShared] = useState(initial?.isShared ?? false);
   const [counterpartyId, setCounterpartyId] = useState('');
+  const [splitMode, setSplitMode] = useState<SplitMode>('equal');
+  const [myRatio, setMyRatio] = useState<number>(0.5);
+  const [myCustomAmount, setMyCustomAmount] = useState<number>(0);
+
+  // 기존 공동지출이 존재할 경우 상세 정보 로드
+  useEffect(() => {
+    if (initial?.sharedExpenseId) {
+      localCache.getSharedExpenses(ym).then((expenses) => {
+        const found = expenses.find((e) => e.id === initial.sharedExpenseId);
+        if (found) {
+          setIsShared(true);
+          setCounterpartyId(found.counterpartyId);
+          setSplitMode(found.splitMode);
+          if (found.splitMode === 'ratio') {
+            const calculatedRatio = initial.amount > 0 ? found.myShareAmount / initial.amount : 0.5;
+            setMyRatio(Number(calculatedRatio.toFixed(2)));
+          } else if (found.splitMode === 'custom_amount') {
+            setMyCustomAmount(found.myShareAmount);
+          }
+        }
+      });
+    }
+  }, [initial, ym]);
 
   const [titleError, setTitleError] = useState('');
   const [amountError, setAmountError] = useState('');
   const [categoryError, setCategoryError] = useState('');
+  const [counterpartyError, setCounterpartyError] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // entryKind 변경 시 카테고리 초기화
+  // entryKind 변경 시 상태 및 카테고리 초기화
   useEffect(() => {
     if (!initial) setCategoryId('');
+    if (entryKind !== 'expense') {
+      setIsShared(false);
+      setCounterpartyId('');
+      setCounterpartyError('');
+    }
   }, [entryKind, initial]);
 
   const filteredCategories = categories.filter(
@@ -99,6 +140,17 @@ export function TransactionForm({
     if (!title.trim()) { setTitleError('제목을 입력해주세요.'); hasError = true; }
     if (amount <= 0) { setAmountError('금액을 입력해주세요.'); hasError = true; }
     if (!categoryId) { setCategoryError('카테고리를 선택해주세요.'); hasError = true; }
+
+    if (isShared) {
+      if (counterparties.length === 0) {
+        setCounterpartyError('공동정산 상대방을 먼저 추가해주세요.');
+        hasError = true;
+      } else if (!counterpartyId) {
+        setCounterpartyError('정산 상대방을 선택해주세요.');
+        hasError = true;
+      }
+    }
+
     if (hasError) return;
 
     setSaving(true);
@@ -112,6 +164,7 @@ export function TransactionForm({
       amount,
       categoryId,
       paymentMethodId: paymentMethodId || undefined,
+      accountId: accountId || undefined,
       memo: memo.trim() || undefined,
       isShared,
       sharedExpenseId: initial?.sharedExpenseId,
@@ -120,7 +173,13 @@ export function TransactionForm({
       updatedAt: now,
     };
     try {
-      await onSave(tx, isShared && counterpartyId ? counterpartyId : undefined);
+      await onSave(
+        tx,
+        isShared && counterpartyId ? counterpartyId : undefined,
+        isShared ? splitMode : undefined,
+        isShared && splitMode === 'ratio' ? myRatio : undefined,
+        isShared && splitMode === 'custom_amount' ? myCustomAmount : undefined
+      );
     } finally {
       setSaving(false);
     }
@@ -200,6 +259,22 @@ export function TransactionForm({
         onChange={(e) => setPaymentMethodId(e.target.value)}
       />
 
+      {/* 연결 계좌 */}
+      <Select
+        label="연결 계좌 (선택)"
+        value={accountId}
+        options={[
+          { value: '', label: '계좌 선택 안함' },
+          ...accounts
+            .filter((a) => a.isActive)
+            .map((a) => ({
+              value: a.id,
+              label: `${a.name}${a.isBudgetAccount ? ' (생활비)' : ''}`,
+            })),
+        ]}
+        onChange={(e) => setAccountId(e.target.value)}
+      />
+
       {/* 메모 */}
       <Input
         label="메모 (선택)"
@@ -214,19 +289,91 @@ export function TransactionForm({
           <button
             type="button"
             className={[styles.sharedToggle, isShared ? styles.sharedToggleOn : ''].filter(Boolean).join(' ')}
-            onClick={() => { setIsShared(!isShared); if (isShared) setCounterpartyId(''); }}
+            onClick={() => {
+              if (counterparties.length === 0) {
+                alert('공동정산 메뉴에서 상대방을 먼저 등록하셔야 공동지출을 사용할 수 있습니다.');
+                return;
+              }
+              setIsShared(!isShared);
+              if (isShared) {
+                setCounterpartyId('');
+                setCounterpartyError('');
+              }
+            }}
+            disabled={counterparties.length === 0}
+            style={counterparties.length === 0 ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
           >
             <span className={styles.sharedIcon}>{isShared ? '✓' : ''}</span>
             공동지출
           </button>
           {isShared && counterparties.length > 0 && (
-            <Select
-              label=""
-              value={counterpartyId}
-              options={counterpartyOptions}
-              placeholder="상대방 선택"
-              onChange={(e) => setCounterpartyId(e.target.value)}
-            />
+            <>
+              <Select
+                label="정산 상대방"
+                value={counterpartyId}
+                options={counterpartyOptions}
+                placeholder="상대방 선택"
+                onChange={(e) => {
+                  setCounterpartyId(e.target.value);
+                  setCounterpartyError('');
+                }}
+                error={counterpartyError}
+              />
+              <div className={styles.splitSection}>
+                <label className={styles.formLabel} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>분담 방식</label>
+                <div className={styles.splitTabs}>
+                  {(['equal', 'ratio', 'custom_amount'] as SplitMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={[styles.splitTab, splitMode === mode ? styles.splitTabActive : ''].filter(Boolean).join(' ')}
+                      onClick={() => setSplitMode(mode)}
+                    >
+                      {mode === 'equal' ? '5:5 반반' : mode === 'ratio' ? '비율 지정' : '직접 입력'}
+                    </button>
+                  ))}
+                </div>
+
+                {splitMode === 'ratio' && (
+                  <div className={styles.ratioWrapper}>
+                    <div className={styles.ratioLabels}>
+                      <span>내 비율: <strong>{Math.round(myRatio * 10)}</strong></span>
+                      <span>상대 비율: <strong>{Math.round((1 - myRatio) * 10)}</strong></span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="0.9"
+                      step="0.1"
+                      value={myRatio}
+                      className={styles.slider}
+                      onChange={(e) => setMyRatio(Number(e.target.value))}
+                    />
+                    <div className={styles.ratioHint}>
+                      내 부담: {Math.round(amount * myRatio).toLocaleString()}원 | 상대 부담: {Math.round(amount * (1 - myRatio)).toLocaleString()}원
+                    </div>
+                  </div>
+                )}
+
+                {splitMode === 'custom_amount' && (
+                  <div className={styles.customAmountField}>
+                    <AmountInput
+                      label="내 부담 금액"
+                      value={myCustomAmount}
+                      onChange={(v) => {
+                        setMyCustomAmount(v);
+                        if (v > amount) {
+                          setMyCustomAmount(amount);
+                        }
+                      }}
+                    />
+                    <div className={styles.ratioHint}>
+                      상대 부담액: {Math.max(0, amount - myCustomAmount).toLocaleString()}원
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
           )}
           {isShared && counterparties.length === 0 && (
             <p className={styles.sharedHint}>공동정산 탭에서 상대방을 먼저 추가해주세요.</p>

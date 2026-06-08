@@ -14,6 +14,7 @@ import type {
   Transaction,
   AppConfig,
 } from '../../domain/types';
+import { calcNetReceivable, calcNetPayable } from '../../domain/sharedSettlement';
 import styles from './SettlementPage.module.css';
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────────
@@ -48,23 +49,20 @@ function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function remainingAmount(expense: SharedExpense): number {
+function remainingAmount(expense: SharedExpense, transfers: SettlementTransfer[]): number {
   if (expense.paidBy === 'me') {
-    return Math.max(0, expense.counterpartyShareAmount - expense.settledInAmount);
+    return Math.max(0, calcNetReceivable(expense, transfers));
   }
-  return Math.max(0, expense.myShareAmount - expense.settledOutAmount);
+  return Math.max(0, calcNetPayable(expense, transfers));
 }
 
-function calcSummary(expenses: SharedExpense[]): { receivable: number; payable: number } {
+function calcSummary(expenses: SharedExpense[], transfers: SettlementTransfer[]): { receivable: number; payable: number } {
   let receivable = 0;
   let payable = 0;
   for (const e of expenses) {
     if (e.status === 'settled') continue;
-    if (e.paidBy === 'me') {
-      receivable += Math.max(0, e.counterpartyShareAmount - e.settledInAmount);
-    } else {
-      payable += Math.max(0, e.myShareAmount - e.settledOutAmount);
-    }
+    receivable += Math.max(0, calcNetReceivable(e, transfers));
+    payable += Math.max(0, calcNetPayable(e, transfers));
   }
   return { receivable, payable };
 }
@@ -88,9 +86,11 @@ export function SettlementPage() {
   const setConfig   = useAppStore((s) => s.setConfig);
   const activeMonth = useAppStore((s) => s.activeMonth);
   const setActiveMonth = useAppStore((s) => s.setActiveMonth);
+  const lastSyncedAt = useAppStore((s) => s.lastSyncedAt);
 
   const [sharedExpenses, setSharedExpenses] = useState<SharedExpense[]>([]);
   const [transactions, setTransactions]     = useState<Transaction[]>([]);
+  const [transfers, setTransfers]           = useState<SettlementTransfer[]>([]);
 
   const [cpSheetOpen, setCpSheetOpen] = useState(false);
   const [cpName, setCpName]           = useState('');
@@ -103,17 +103,19 @@ export function SettlementPage() {
   const [filterCpId, setFilterCpId] = useState<string>('');
 
   const load = useCallback(async () => {
-    const [expenses, txList] = await Promise.all([
+    const [expenses, txList, trList] = await Promise.all([
       localCache.getSharedExpenses(activeMonth),
       localCache.getTransactions(activeMonth),
+      localCache.getSettlementTransfers(),
     ]);
     setSharedExpenses(expenses);
     setTransactions(txList);
-  }, [activeMonth]);
+    setTransfers(trList);
+  }, [activeMonth, lastSyncedAt]);
 
   useEffect(() => { load(); }, [load]);
 
-  const { receivable, payable } = calcSummary(sharedExpenses);
+  const { receivable, payable } = calcSummary(sharedExpenses, transfers);
   const net = receivable - payable;
 
   // 설정된 상대방 목록 + 공동지출에서 참조하지만 설정에 없는 ID도 폴백으로 포함
@@ -159,7 +161,7 @@ export function SettlementPage() {
   // ─── 정산 완료 처리 ──────────────────────────────────────────────────────
 
   const handleSettle = async (expense: SharedExpense) => {
-    const remaining = remainingAmount(expense);
+    const remaining = remainingAmount(expense, transfers);
     if (remaining <= 0) return;
 
     setSettlingId(expense.id);
@@ -214,6 +216,37 @@ export function SettlementPage() {
     }
   };
 
+  // ─── 상대방 삭제 ─────────────────────────────────────────────────────────
+
+  const handleDeleteCounterparty = async (cpId: string, cpName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // 필터 선택 클릭 방지
+
+    // 이번 달 공동지출 중 해당 상대가 엮인 미정산 건이 있는지 체크
+    const hasLinked = sharedExpenses.some((ex) => ex.counterpartyId === cpId && ex.status !== 'settled');
+    if (hasLinked) {
+      alert(`'${cpName}' 님과 정산되지 않은 이번 달 공동지출 내역이 있어 삭제할 수 없습니다.`);
+      return;
+    }
+
+    if (!confirm(`'${cpName}' 님을 정산 상대에서 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    const newCpList = config.counterparties.filter((c) => c.id !== cpId);
+    const newConfig: AppConfig = {
+      ...config,
+      counterparties: newCpList,
+    };
+
+    if (filterCpId === cpId) {
+      setFilterCpId('');
+    }
+
+    await localCache.setConfig(newConfig);
+    await driveAdapter.writeConfig(makeEnvelope('config.json', newConfig));
+    setConfig(newConfig);
+  };
+
   // ─── 렌더 ────────────────────────────────────────────────────────────────
 
   const sortedExpenses = [...sharedExpenses]
@@ -221,7 +254,10 @@ export function SettlementPage() {
     .sort((a, b) => {
       const txA = txMap.get(a.transactionId);
       const txB = txMap.get(b.transactionId);
-      return (txB?.date ?? '').localeCompare(txA?.date ?? '');
+      // 삭제된 거래(date 없음)는 맨 뒤로 보내기
+      const dA = txA?.date ?? '0000-00-00';
+      const dB = txB?.date ?? '0000-00-00';
+      return dB.localeCompare(dA);
     });
 
   const openCount   = sharedExpenses.filter(e => e.status !== 'settled').length;
@@ -304,18 +340,24 @@ export function SettlementPage() {
                   const cpExpenses = sharedExpenses.filter((e) => e.counterpartyId === cp.id && e.status !== 'settled');
                   const cpReceivable = cpExpenses
                     .filter((e) => e.paidBy === 'me')
-                    .reduce((s, e) => s + Math.max(0, e.counterpartyShareAmount - e.settledInAmount), 0);
+                    .reduce((s, e) => s + Math.max(0, calcNetReceivable(e, transfers)), 0);
                   const cpPayable = cpExpenses
                     .filter((e) => e.paidBy === 'counterparty')
-                    .reduce((s, e) => s + Math.max(0, e.myShareAmount - e.settledOutAmount), 0);
+                    .reduce((s, e) => s + Math.max(0, calcNetPayable(e, transfers)), 0);
                   const cpNet = cpReceivable - cpPayable;
                   const isActive = filterCpId === cp.id;
                   return (
-                    <button
+                    <div
                       key={cp.id}
                       className={`${styles.cpItem} ${isActive ? styles.cpItemActive : ''}`}
                       onClick={() => setFilterCpId(isActive ? '' : cp.id)}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          setFilterCpId(isActive ? '' : cp.id);
+                        }
+                      }}
                     >
                       <div className={styles.cpAvatar}>{cp.name[0]}</div>
                       <span className={styles.cpName}>{cp.name}</span>
@@ -328,7 +370,17 @@ export function SettlementPage() {
                         </span>
                       )}
                       {cpNet === 0 && <span className={styles.cpSettled}>✓ 정산 완료</span>}
-                    </button>
+                      
+                      <button
+                        className={styles.deleteCpBtn}
+                        onClick={(e) => handleDeleteCounterparty(cp.id, cp.name, e)}
+                        title="상대방 삭제"
+                        type="button"
+                        aria-label={`${cp.name} 정산 상대 삭제`}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -359,7 +411,7 @@ export function SettlementPage() {
                 {sortedExpenses.map((expense) => {
                   const tx = txMap.get(expense.transactionId);
                   const cp = counterpartyMap.get(expense.counterpartyId);
-                  const remaining = remainingAmount(expense);
+                  const remaining = remainingAmount(expense, transfers);
                   const isSettling = settlingId === expense.id;
                   const isSettled = expense.status === 'settled';
 
@@ -441,7 +493,7 @@ export function SettlementPage() {
                     <span className={styles.statsItemValue}>{fmt(totalShared)}</span>
                   </div>
                   <div className={styles.statsCardItem}>
-                    <span className={styles.statsItemLabel}>평균 정산액 (건당)</span>
+                    <span className={styles.statsItemLabel}>건당 평균 내 부담</span>
                     <span className={styles.statsItemValue}>{fmt(perPerson)}</span>
                   </div>
                   <div className={styles.statsCardItem}>

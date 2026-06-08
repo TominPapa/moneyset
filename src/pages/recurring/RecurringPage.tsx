@@ -1,11 +1,12 @@
 // RecurringPage — RESET Budget V2 (PC Dashboard Layout)
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../../app/store/appStore';
 import {
   getRecurringItems,
   upsertRecurringItem,
   deleteRecurringItem,
+  hasPendingSync,
 } from '../../storage/localPlanStore';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { Input } from '../../components/ui/Input';
@@ -53,6 +54,7 @@ function emptyItem(kind: RecurringKind): RecurringItem {
     categoryId: '',
     nextDueDate: today,
     enabled: true,
+    accountId: '',
     cycle: 'monthly',
     dayOfMonth: new Date().getDate(),
     providerName: '',
@@ -78,10 +80,13 @@ interface ItemCardProps {
 
 function RecurringItemCard({ item, categoryMap, onEdit, onDelete, onToggle }: ItemCardProps) {
   const cat = categoryMap.get(item.categoryId);
+  const accounts = useAppStore((s) => s.accounts);
+  const account = accounts.find((a) => a.id === item.accountId);
   const daysUntil = (() => {
     const today = toLocalDateStr(new Date());
     if (item.nextDueDate < today) return -1;
-    const diff = new Date(item.nextDueDate).getTime() - new Date(today).getTime();
+    // 'T00:00:00'을 붙여 로컬 시간 기준으로 파싱 (UTC 파싱 방지 → 시간대 오차 1일 방지)
+    const diff = new Date(item.nextDueDate + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   })();
 
@@ -90,12 +95,29 @@ function RecurringItemCard({ item, categoryMap, onEdit, onDelete, onToggle }: It
       <div className={styles.cardTop}>
         <span className={styles.cardIcon}>{cat?.icon ?? KIND_ICONS[item.kind]}</span>
         <div className={styles.cardInfo}>
-          <span className={styles.cardTitle}>{item.title || '(제목 없음)'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className={styles.cardTitle}>{item.title || '(제목 없음)'}</span>
+            {account?.isBudgetAccount && (
+              <span style={{
+                fontSize: 9,
+                background: 'rgba(63,214,164,0.15)',
+                color: 'var(--mint-300)',
+                padding: '1px 5px',
+                borderRadius: 4,
+                fontWeight: 700,
+                lineHeight: 1,
+                whiteSpace: 'nowrap'
+              }}>
+                생활비
+              </span>
+            )}
+          </div>
           <span className={styles.cardMeta}>
             {cat?.name ?? '미분류'}
             {item.kind === 'regular' && item.cycle && ` · ${CYCLE_LABELS[item.cycle]}`}
             {item.kind === 'subscription' && item.billingCycle && ` · ${CYCLE_LABELS[item.billingCycle]}`}
             {item.kind === 'installment' && item.remainingInstallments !== undefined && ` · 잔여 ${item.remainingInstallments}회`}
+            {account && ` · ${account.name}`}
           </span>
         </div>
         <div className={styles.cardRight}>
@@ -130,15 +152,29 @@ function RecurringItemCard({ item, categoryMap, onEdit, onDelete, onToggle }: It
 
 export function RecurringPage() {
   const config = useAppStore((s) => s.config);
+  const accounts = useAppStore((s) => s.accounts);
 
   const [activeTab, setActiveTab] = useState<RecurringKind>('regular');
   const [items, setItems]         = useState<RecurringItem[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing]     = useState<RecurringItem>(emptyItem('regular'));
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
-    setItems(getRecurringItems());
+    const timer = setInterval(() => {
+      setIsPending(hasPendingSync());
+    }, 500);
+    return () => clearInterval(timer);
   }, []);
+
+  const loadItems = useCallback(async () => {
+    const loaded = await getRecurringItems();
+    setItems(loaded);
+  }, []);
+
+  useEffect(() => {
+    void loadItems();
+  }, [loadItems]);
 
   const categoryMap = new Map(config.categories.map((c) => [c.id, c]));
   const requiredCategories = config.categories.filter(
@@ -148,18 +184,20 @@ export function RecurringPage() {
   function openAdd() { setEditing(emptyItem(activeTab)); setSheetOpen(true); }
   function openEdit(item: RecurringItem) { setEditing({ ...item }); setSheetOpen(true); }
 
-  function handleDelete(id: string) {
-    deleteRecurringItem(id);
-    setItems(getRecurringItems());
+  async function handleDelete(id: string) {
+    await deleteRecurringItem(id);
+    const loaded = await getRecurringItems();
+    setItems(loaded);
   }
 
-  function handleToggle(item: RecurringItem) {
+  async function handleToggle(item: RecurringItem) {
     const updated: RecurringItem = { ...item, enabled: !item.enabled, updatedAt: new Date().toISOString() };
-    upsertRecurringItem(updated);
-    setItems(getRecurringItems());
+    await upsertRecurringItem(updated);
+    const loaded = await getRecurringItems();
+    setItems(loaded);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!editing.title.trim() || editing.amount <= 0) return;
     const now = new Date().toISOString();
     const toSave: RecurringItem = {
@@ -168,8 +206,9 @@ export function RecurringPage() {
       updatedAt: now,
       createdAt: editing.id ? editing.createdAt : now,
     };
-    upsertRecurringItem(toSave);
-    setItems(getRecurringItems());
+    await upsertRecurringItem(toSave);
+    const loaded = await getRecurringItems();
+    setItems(loaded);
     setSheetOpen(false);
   }
 
@@ -178,7 +217,11 @@ export function RecurringPage() {
   }
 
   const tabItems = items.filter((i) => i.kind === activeTab);
-  const tabTotal = tabItems.filter((i) => i.enabled).reduce((s, i) => s + i.amount, 0);
+  // yearly 구독/정기지출은 월 환산 집계에서 제외 (홈화면 totalMonthly와 동일 기준)
+  const tabTotal = tabItems
+    .filter((i) => i.enabled)
+    .filter((i) => i.kind === 'subscription' ? i.billingCycle !== 'yearly' : i.cycle !== 'yearly')
+    .reduce((s, i) => s + i.amount, 0);
 
   // 예정 납부 일정 (다음 30일)
   const today = new Date();
@@ -190,14 +233,24 @@ export function RecurringPage() {
     .filter((i) => i.enabled && i.nextDueDate >= todayStr && i.nextDueDate <= laterStr)
     .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
 
-  // 전체 합계 (yearly 주기 항목은 월 환산에서 제외)
-  const totalMonthly = items.filter((i) => i.enabled && i.cycle !== 'yearly').reduce((s, i) => s + i.amount, 0);
+  // 전체 합계 (yearly 주기 항목은 월 환산에서 제외; subscription은 billingCycle 기준)
+  const totalMonthly = items
+    .filter((i) => i.enabled)
+    .filter((i) => i.kind === 'subscription' ? i.billingCycle !== 'yearly' : i.cycle !== 'yearly')
+    .reduce((s, i) => s + i.amount, 0);
 
   return (
     <div className={styles.page}>
       {/* ── 상단 바 ── */}
       <div className={styles.topBar}>
-        <h1 className={styles.pageTitle}>정기지출 · 구독 · 할부</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h1 className={styles.pageTitle}>정기지출 · 구독 · 할부</h1>
+          {isPending && (
+            <span style={{ fontSize: 12, color: 'var(--gold-400)', display: 'flex', alignItems: 'center', gap: 4, animation: 'pulse 1.5s infinite' }}>
+              ☁️ 클라우드 동기화 중...
+            </span>
+          )}
+        </div>
         <div className={styles.topStats}>
           <div className={styles.topStat}>
             <span className={styles.topStatLabel}>월 합계</span>
@@ -286,7 +339,8 @@ export function RecurringPage() {
               <div className={styles.upcomingList}>
                 {upcoming.map((item) => {
                   const cat = categoryMap.get(item.categoryId);
-                  const daysUntil = Math.ceil((new Date(item.nextDueDate).getTime() - new Date(todayStr).getTime()) / (1000 * 60 * 60 * 24));
+                  // 'T00:00:00'을 붙여 로컬 시간 기준 파싱 (UTC 파싱 방지)
+                  const daysUntil = Math.ceil((new Date(item.nextDueDate + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24));
                   return (
                     <div key={item.id} className={styles.upcomingItem}>
                       <div className={`${styles.upcomingDateBox} ${daysUntil <= 3 ? styles.upcomingDateBoxUrgent : ''}`}>
@@ -373,6 +427,23 @@ export function RecurringPage() {
             onChange={(e) => update('nextDueDate', e.target.value)}
             type="date"
           />
+
+          <div className={styles.formField}>
+            <label className={styles.formLabel}>연결 출금 계좌 (선택)</label>
+            <Select
+              value={editing.accountId ?? ''}
+              onChange={(e) => update('accountId', e.target.value)}
+              options={[
+                { value: '', label: '계좌 선택 안함' },
+                ...accounts
+                  .filter((a) => a.isActive)
+                  .map((a) => ({
+                    value: a.id,
+                    label: `${a.institution ? a.institution + ' ' : ''}${a.name}${a.isBudgetAccount ? ' (생활비)' : ''}`,
+                  })),
+              ]}
+            />
+          </div>
 
           {editing.kind === 'regular' && (
             <div className={styles.formField}>

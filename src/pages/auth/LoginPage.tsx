@@ -23,31 +23,16 @@ function startOAuthRedirect() {
 }
 
 export function LoginPage() {
-  const login = useAppStore((s) => s.login);
   const loginStep = useAppStore((s) => s.loginStep);
-  // OAuth 복귀 시 토큰이 sessionStorage에 있으면 즉시 로딩 상태로 시작
-  const [isLoading, setIsLoading] = useState(
-    () => !!sessionStorage.getItem('__oauth_token__')
-  );
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isKakao, setIsKakao] = useState(false);
 
-  // OAuth 리다이렉트 복귀 시 sessionStorage에서 토큰 추출 (main.tsx에서 저장)
   useEffect(() => {
-    const token = sessionStorage.getItem('__oauth_token__');
-    if (!token) return;
-    sessionStorage.removeItem('__oauth_token__');
-
-    setIsLoading(true);
-    setError(null);
-    login(token).catch((err) => {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Google Drive 연결 중 오류가 발생했습니다. 다시 시도해주세요.'
-      );
-      setIsLoading(false);
-    });
-  }, [login]);
+    const ua = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+    if (/KAKAOTALK/i.test(ua)) {
+      setIsKakao(true);
+    }
+  }, []);
 
   function handleGoogleLogin() {
     setIsLoading(true);
@@ -64,16 +49,28 @@ export function LoginPage() {
         </div>
 
         <div className={styles.body}>
-          {error && (
-            <p className={styles.errorMsg} role="alert">
-              {error}
-            </p>
+
+          {isKakao && (
+            <div className={styles.kakaoBanner}>
+              <h2 className={styles.kakaoTitle}>
+                ⚠️ 카카오톡 로그인 제한 안내
+              </h2>
+              <p className={styles.kakaoDesc}>
+                카카오톡 인앱 브라우저에서는 구글의 보안 정책으로 인해 Google 로그인 및 드라이브 연동이 차단됩니다. 아래 버튼을 눌러 외부 브라우저(Safari, Chrome 등)로 이동하여 사용해주세요.
+              </p>
+              <a
+                href={`kakaotalk://web/openExternalApp?url=${encodeURIComponent(window.location.href)}`}
+                className={styles.kakaoBtn}
+              >
+                외부 브라우저로 열기
+              </a>
+            </div>
           )}
 
           <button
             className={styles.googleBtn}
             onClick={handleGoogleLogin}
-            disabled={isLoading}
+            disabled={isLoading || isKakao}
             type="button"
           >
             {isLoading ? (

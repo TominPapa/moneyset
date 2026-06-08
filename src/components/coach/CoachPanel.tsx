@@ -39,8 +39,9 @@ interface CoachPanelProps {
 }
 
 export function CoachPanel({ onClose }: CoachPanelProps) {
-  const config      = useAppStore(s => s.config);
-  const activeMonth = useAppStore(s => s.activeMonth);
+  const config       = useAppStore(s => s.config);
+  const activeMonth  = useAppStore(s => s.activeMonth);
+  const lastSyncedAt = useAppStore(s => s.lastSyncedAt);
 
   const [tips, setTips]       = useState<CoachTip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +77,7 @@ export function CoachPanel({ onClose }: CoachPanelProps) {
       // BudgetPlan에서 카테고리 예산 조회
       const budgetMap = new Map<string, number>();
       try {
-        const plan = getBudgetPlan(activeMonth);
+        const plan = await getBudgetPlan(activeMonth);
         if (plan) {
           for (const item of plan.items) {
             budgetMap.set(item.categoryId, item.budgetAmount);
@@ -114,7 +115,7 @@ export function CoachPanel({ onClose }: CoachPanelProps) {
       setTips(generated);
       setLoading(false);
     })();
-  }, [activeMonth, config]);
+  }, [activeMonth, config, lastSyncedAt]);
 
   return (
     <div className={styles.panel}>

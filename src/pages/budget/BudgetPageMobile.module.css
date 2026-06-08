@@ -1,0 +1,543 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--bg-1);
+  color: var(--text-1);
+  padding: 16px;
+  padding-bottom: 96px; /* 하단 네비 영역 확보 */
+  box-sizing: border-box;
+}
+
+/* 헤더 */
+.header {
+  margin-bottom: 16px;
+}
+
+.headerTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pageTitle {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.monthNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-2);
+  padding: 4px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.navBtn {
+  background: none;
+  border: none;
+  color: var(--text-2);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.navBtn:active {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+
+.monthLabel {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* 요약 카드 */
+.summaryCard {
+  background: linear-gradient(135deg, var(--bg-2) 0%, var(--bg-3) 100%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.progressLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.progressPct {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.amountGrid {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.amountItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.amountLabel {
+  font-size: 11px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.amountVal {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.dailyGrid {
+  display: flex;
+  margin-top: 16px;
+  align-items: center;
+}
+
+.dailyItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dailyLabel {
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+.dailyVal {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.dailyDivider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  margin: 0 12px;
+}
+
+.noPlanHint {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--gold-400);
+  background: rgba(217, 178, 106, 0.08);
+  border: 1px solid rgba(217, 178, 106, 0.2);
+  padding: 6px 10px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* 퀵 액션 */
+.quickActions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.actionBtn, .actionBtnPrimary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.actionBtn {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+}
+
+.actionBtn:active {
+  background: var(--bg-3);
+}
+
+.actionBtnPrimary {
+  background: var(--mint-500);
+  color: #000;
+}
+
+.actionBtnPrimary:active {
+  opacity: 0.9;
+}
+
+/* 아코디언 */
+.accordionSection {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.accordionHeader {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: none;
+  border: none;
+  color: var(--text-1);
+  cursor: pointer;
+  text-align: left;
+}
+
+.accordionHeader:active {
+  background: var(--bg-3);
+}
+
+.accordionTitleCol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.accordionTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.accordionSubtitle {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.accordionArrowRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.accordionArrow {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.accordionContent {
+  border-top: 1px solid var(--border);
+  padding: 16px;
+  background-color: rgba(255, 255, 255, 0.01);
+}
+
+/* 탭 필터 */
+.tabs {
+  display: flex;
+  background: var(--bg-3);
+  border-radius: 8px;
+  padding: 2px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+}
+
+.tab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  padding: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.tabActive {
+  background: var(--bg-2);
+  color: var(--text-1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 카테고리 카드 리스트 */
+.catList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catCard {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catCardOver {
+  border-color: rgba(244, 114, 114, 0.3);
+  background: rgba(244, 114, 114, 0.02);
+}
+
+.catCardTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.catIconWrapper {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.catInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.catName {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.catAmtDetail {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.catPctWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.catPctBig {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.overBadge {
+  background: rgba(244, 114, 114, 0.15);
+  color: var(--danger);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.catProgress {
+  margin-top: 4px;
+}
+
+/* 필수 지출 리스트 */
+.reqList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reqItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.reqItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.reqIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.reqInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reqTitle {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.reqCatName {
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+.reqAmt {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.goldPill {
+  background: rgba(217, 178, 106, 0.15);
+  color: var(--gold-300);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--text-2);
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* 동기화 알림 */
+.syncNotice {
+  position: fixed;
+  bottom: calc(72px + env(safe-area-inset-bottom, 16px));
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 20, 0.9);
+  border: 1px solid var(--border);
+  color: var(--gold-400);
+  font-size: 12px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+  animation: pulse 1.5s infinite;
+}
+
+/* 설정 폼 (BottomSheet 내) */
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.editScrollArea {
+  max-height: 40vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 4px;
+}
+
+.editField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.editHint {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.editSectionTitle {
+  font-size: 14px;
+  font-weight: 700;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 8px;
+}
+
+.quickAmountRow {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.quickAmtBtn {
+  flex: 1;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quickAmtBtn:active {
+  background: var(--bg-2);
+  color: var(--text-1);
+}
+
+.editActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.editActions button {
+  flex: 1;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.8; }
+  50% { opacity: 0.5; }
+  100% { opacity: 0.8; }
+}

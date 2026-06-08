@@ -12,6 +12,7 @@ import type {
   Account,
   Liability,
   BudgetPlan,
+  RecurringItem,
 } from '../domain/types';
 
 // ─── Drive 파일 경로 상수 ──────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ export const DRIVE_FILE_NAMES = {
   monthTransactions: (ym: string) => `months/${ym}.transactions.json`,
   monthSharedExpenses: (ym: string) => `shared/${ym}.shared-expenses.json`,
   monthBudgetPlan: (ym: string) => `months/${ym}.budget.json`,
+  recurringItems: 'recurring-items.json',
 } as const;
 
 // ─── Manifest ────────────────────────────────────────────────────────────────
@@ -43,7 +45,9 @@ export interface Manifest {
 
 // ─── App State (appDataFolder) ────────────────────────────────────────────────
 
-export type UserTier = 'free' | 'supporter';
+// UserTier — 단일 정의는 src/domain/tiers.ts 참조
+import type { UserTier } from '../domain/tiers';
+export type { UserTier };
 
 export interface AppState {
   currentLedgerRootFolderId: string;
@@ -53,6 +57,14 @@ export interface AppState {
   lastSyncAt: string;
   installId: string;
   userTier?: UserTier;   // 미설정 시 'free'로 취급
+}
+
+// ─── 백업 메타 ────────────────────────────────────────────────────────────────
+
+export interface BackupMeta {
+  date: string;     // YYYY-MM-DD
+  fileId: string;
+  savedAt: string;  // ISO datetime (Drive modifiedTime)
 }
 
 // ─── 충돌 감지 결과 ───────────────────────────────────────────────────────────
@@ -114,9 +126,19 @@ export interface DriveAdapter {
   readBudgetPlan(ym: string): Promise<FileEnvelope<BudgetPlan | null>>;
   writeBudgetPlan(ym: string, data: FileEnvelope<BudgetPlan>): Promise<void>;
 
+  // 정기지출 항목 (전체)
+  readRecurringItems(): Promise<FileEnvelope<RecurringItem[]>>;
+  writeRecurringItems(data: FileEnvelope<RecurringItem[]>): Promise<void>;
+
   // AppState (appDataFolder)
   readAppState(): Promise<AppState | null>;
   writeAppState(state: AppState): Promise<void>;
+
+  // 백업 스냅샷 (backups/ 폴더)
+  listBackups(): Promise<BackupMeta[]>;
+  readBackupRaw(fileId: string): Promise<unknown>;
+  writeBackup(date: string, data: unknown): Promise<string>;  // fileId 반환
+  deleteBackup(fileId: string): Promise<void>;
 }
 
 // ─── 충돌 감지 헬퍼 ──────────────────────────────────────────────────────────

@@ -26,11 +26,18 @@ export interface SafetyInput {
   plannedRequiredThisWeek?: number; // 이번 주 남은 필수지출 (강등 규칙용)
 
   thresholds?: SafetyThreshold[];   // 미전달 시 기본값 사용
+  overrideMonthlyBudgetBase?: number; // 예산 계획에서 수립된 총 생활비 예산 금액
+  budgetAccountBalanceTotal?: number; // 생활비 통장 잔액 합계
+  hasBudgetAccount?: boolean;        // 생활비 통장 존재 여부
 }
 
 // ─── 8.3.1 월간 총 가용 예산 ──────────────────────────────────────────────────
 
 export function calcMonthlyBudgetBase(input: SafetyInput): number {
+  if (input.overrideMonthlyBudgetBase !== undefined && input.overrideMonthlyBudgetBase > 0) {
+    return input.overrideMonthlyBudgetBase;
+  }
+
   const receivable = input.includeSettlementReceivable
     ? input.expectedSettlementReceivable
     : 0;
@@ -149,11 +156,39 @@ export function determineSafetyLevel(
 export function calcSafetySummary(
   input: SafetyInput,
 ): SafetySummary {
-  const monthlyBudgetBase = calcMonthlyBudgetBase(input);
-  const monthlySpendableRemaining = calcMonthlySpendableRemaining(
-    monthlyBudgetBase,
-    input.livingSpentSoFar,
-  );
+  let monthlyBudgetBase = 0;
+  let monthlySpendableRemaining = 0;
+
+  if (input.hasBudgetAccount && input.budgetAccountBalanceTotal !== undefined) {
+    // 1. 생활비 통장이 등록된 경우: 통장 잔액의 합계가 '남은 생활비'가 됨
+    monthlySpendableRemaining = input.budgetAccountBalanceTotal;
+    // 가용 예산 베이스 = 현재 잔액 + 이번 달에 이미 쓴 생활비 누계
+    monthlyBudgetBase = monthlySpendableRemaining + input.livingSpentSoFar;
+  } else {
+    // 2. 생활비 통장이 없는 경우 (기존의 예상 수입 기반 폴백)
+    monthlyBudgetBase = calcMonthlyBudgetBase(input);
+    monthlySpendableRemaining = calcMonthlySpendableRemaining(
+      monthlyBudgetBase,
+      input.livingSpentSoFar,
+    );
+  }
+
+  // 생활비 통장이 등록됐지만 잔액도 0이고 지출도 0인 경우
+  // (계좌 등록 직후 잔액 미입력) → 데이터 없음으로 처리 (critical, score=0)
+  if (input.hasBudgetAccount && monthlyBudgetBase === 0 && monthlySpendableRemaining === 0) {
+    return {
+      monthlyBudgetBase: 0,
+      livingSpentSoFar: input.livingSpentSoFar,
+      monthlySpendableRemaining: 0,
+      dailyRecommendedLimit: 0,
+      weeklyRecommendedLimit: 0,
+      idealSpendableRemaining: 0,
+      safetyScore: 0,
+      safetyLevel: 'critical',
+      weeklyOverspendRatio: 0,
+    };
+  }
+
   const dailyRecommendedLimit = calcDailyRecommendedLimit(
     monthlySpendableRemaining,
     input.remainingDays,

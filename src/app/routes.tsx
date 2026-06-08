@@ -25,6 +25,7 @@ export const ROUTES = {
   settlement:       '/settlement',
   reset:            '/reset',
   settings:         '/settings',
+  upgrade:          '/upgrade',     // 티어 업그레이드 / 코드 입력
 } as const;
 
 export type RoutePath = typeof ROUTES[keyof typeof ROUTES];

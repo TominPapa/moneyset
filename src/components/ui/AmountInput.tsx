@@ -1,7 +1,7 @@
 // AmountInput — 원화 숫자 입력 (1,000원 형식)
 // value/onChange는 실제 숫자(number)로 주고받는다.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import styles from './AmountInput.module.css';
 
 interface AmountInputProps {
@@ -40,6 +40,15 @@ export function AmountInput({
 }: AmountInputProps) {
   const [displayValue, setDisplayValue] = useState(() => formatKRW(value));
   const inputId = id ?? label?.replace(/\s+/g, '_').toLowerCase();
+  const isFocused = useRef(false);
+
+  // 외부 value 변경 시 포커스 중이 아닐 때만 displayValue 동기화
+  // (포커스 중 동기화하면 입력 커서가 리셋되는 문제 방지)
+  useEffect(() => {
+    if (!isFocused.current) {
+      setDisplayValue(formatKRW(value));
+    }
+  }, [value]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,11 +61,13 @@ export function AmountInput({
   );
 
   const handleBlur = useCallback(() => {
+    isFocused.current = false;
     setDisplayValue(formatKRW(value));
   }, [value]);
 
   const handleFocus = useCallback(
     (e: React.FocusEvent<HTMLInputElement>) => {
+      isFocused.current = true;
       // 포커스 시 커서를 끝으로
       const len = e.target.value.length;
       e.target.setSelectionRange(len, len);

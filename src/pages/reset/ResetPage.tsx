@@ -46,6 +46,8 @@ type Step = 'loading' | 'no_reset' | 'select_mode' | 'summary_form' | 'detailed_
 export function ResetPage() {
   const config = useAppStore((s) => s.config);
   const activeMonth = useAppStore((s) => s.activeMonth);
+  const lastSyncedAt = useAppStore((s) => s.lastSyncedAt);
+  const accounts = useAppStore((s) => s.accounts);
   const navigate = useNavigate();
 
   const [step, setStep] = useState<Step>('loading');
@@ -112,14 +114,16 @@ export function ResetPage() {
         : (lastTxDate ?? lastResetDate ?? '');
 
       const start = lastEffective ? addDays(lastEffective, 1) : today;
-      const end = addDays(today, -1);
+      // blankStart가 어제보다 늦으면 오늘을 포함 (하루 공백 케이스)
+      const yesterday = addDays(today, -1);
+      const end = start > yesterday ? today : yesterday;
 
       setBlankStart(start);
       setBlankEnd(end);
       setBlankDays(summary.blankDays);
       setStep('select_mode');
     })();
-  }, [activeMonth, config.resetThresholdDays]);
+  }, [activeMonth, config.resetThresholdDays, lastSyncedAt]);
 
   // ─── 리셋 세션 완료 ────────────────────────────────────────────────────────
 
@@ -163,6 +167,7 @@ export function ResetPage() {
 
   const handleSummaryComplete = async () => {
     if (summaryAmount <= 0) { setSummaryError('금액을 입력해주세요.'); return; }
+    if (summaryAmount > 0 && !summaryCategoryId) { setSummaryError('카테고리를 선택해주세요.'); return; }
     setCompleting(true);
     try {
       if (summaryAmount > 0 && summaryCategoryId) {
@@ -389,6 +394,7 @@ export function ResetPage() {
             categories={config.categories}
             paymentMethods={config.paymentMethods}
             counterparties={config.counterparties}
+            accounts={accounts}
             onSave={handleDetailedSave}
             defaultDate={detailDate || undefined}
           />

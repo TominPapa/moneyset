@@ -417,6 +417,66 @@
   color: var(--text-primary);
 }
 
+/* ── 모바일 레이아웃 (< 768px) ── */
+
+@media (max-width: 767px) {
+  .page {
+    padding-bottom: calc(var(--space-md) + 64px);
+  }
+
+  .topBar {
+    padding: var(--space-xs) var(--space-md);
+    gap: var(--space-xs);
+  }
+
+  .yearLabel {
+    font-size: var(--size-md);
+  }
+
+  .mainGrid {
+    padding: var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  .barChart {
+    height: 140px;
+    padding: var(--space-sm) 2px var(--space-xs);
+  }
+
+  .barValue {
+    display: none; /* 모바일에서 숫자 값 숨김 */
+  }
+
+  .annualStatsGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xs);
+  }
+
+  .annualStatCard {
+    padding: var(--space-sm);
+  }
+
+  .annualStatVal {
+    font-size: var(--size-sm);
+  }
+
+  .savingGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .safetyGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .catRankName {
+    max-width: 60px;
+  }
+
+  .annualChip {
+    padding: 3px var(--space-xs);
+  }
+}
+
 /* ── PC 레이아웃 ── */
 
 @media (min-width: 1024px) {

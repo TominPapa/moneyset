@@ -111,3 +111,80 @@
   color: var(--text-muted);
   margin: 0;
 }
+
+.splitSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.splitTabs {
+  display: flex;
+  background: var(--bg-base);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.splitTab {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  min-height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.splitTabActive {
+  background: var(--bg-card);
+  color: var(--accent-1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.ratioWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+}
+
+.ratioLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--size-xs);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.slider {
+  width: 100%;
+  accent-color: var(--accent-1);
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+
+.ratioHint {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.customAmountField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-top: var(--space-xs);
+}
+

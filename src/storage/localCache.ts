@@ -10,6 +10,8 @@ import type {
   ResetSession,
   Account,
   Liability,
+  BudgetPlan,
+  RecurringItem,
 } from '../domain/types';
 import type { AppState } from './driveAdapter';
 
@@ -85,8 +87,18 @@ export interface LocalCache {
 
   // 리셋 세션
   getResetSessions(): Promise<ResetSession[]>;
+  setResetSessions(sessions: ResetSession[]): Promise<void>;
   addResetSession(session: ResetSession): Promise<void>;
   updateResetSession(session: ResetSession): Promise<void>;
+
+  // 예산 계획 (월별)
+  getBudgetPlan(ym: string): Promise<BudgetPlan | null>;
+  setBudgetPlan(ym: string, plan: BudgetPlan): Promise<void>;
+  deleteBudgetPlan(ym: string): Promise<void>;
+
+  // 정기지출 항목 (전체)
+  getRecurringItems(): Promise<RecurringItem[]>;
+  setRecurringItems(items: RecurringItem[]): Promise<void>;
 
   // 동기화 큐
   getSyncQueue(): Promise<SyncQueueItem[]>;

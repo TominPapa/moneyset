@@ -16,7 +16,10 @@ export function OnboardingStep5Page() {
   const { draft, complete, isCompleting, completeError } = useOnboarding();
 
   const totalBalance = draft.accounts.reduce((sum, a) => sum + a.balance, 0);
-  const totalFixed = draft.liabilities.reduce((sum, l) => sum + l.monthlyAmount, 0);
+  // autoFixedExpense=true인 부채만 고정지출로 반영 (OnboardingContext.complete()와 동일 기준)
+  const totalFixed = draft.liabilities
+    .filter(l => l.autoFixedExpense)
+    .reduce((sum, l) => sum + l.monthlyAmount, 0);
   const monthlySpendable =
     draft.expectedNetIncomeDefault - totalFixed - draft.savingsTargetDefault;
 

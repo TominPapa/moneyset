@@ -1,0 +1,341 @@
+/* UpgradePage.module.css — RESET Budget */
+
+.page {
+  padding: var(--space-md);
+  padding-bottom: calc(var(--space-md) + 80px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl, 32px);
+  max-width: 800px;
+}
+
+/* ── 헤더 ── */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--size-sm);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  width: fit-content;
+}
+.backBtn:hover { color: var(--text-primary); }
+
+.currentTierBadge {
+  font-size: var(--size-xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.title {
+  font-size: var(--size-xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  font-size: var(--size-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── 코드 입력 섹션 ── */
+
+.codeSection {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 16px);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.codeLabel {
+  font-size: var(--size-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.codeRow {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.codeInput {
+  flex: 1;
+  padding: var(--space-md) var(--space-md);
+  background: var(--bg-0, var(--bg-base));
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--size-md);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  transition: border-color 0.15s;
+}
+.codeInput:focus {
+  outline: none;
+  border-color: var(--accent-1);
+}
+.codeInputError {
+  border-color: var(--error);
+}
+
+.activateBtn {
+  padding: var(--space-md) var(--space-lg);
+  background: var(--accent-1);
+  border: none;
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-size: var(--size-sm);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.activateBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.errorMsg {
+  font-size: var(--size-xs);
+  color: var(--error);
+  margin: 0;
+}
+
+.codeHint {
+  font-size: var(--size-xs);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── 플랜 카드 ── */
+
+.plansSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.plansTitle {
+  font-size: var(--size-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.planCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+}
+
+.planCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  position: relative;
+  overflow: hidden;
+}
+
+.planCardHighlight {
+  border-color: var(--mint-500, #10b981);
+  background: color-mix(in srgb, var(--mint-500, #10b981) 6%, var(--bg-card));
+}
+
+.popularBadge {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--mint-500, #10b981);
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.planName {
+  font-size: var(--size-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.planPrice {
+  font-size: var(--size-xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.planDesc {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  border-bottom: 1px solid var(--divider);
+  padding-bottom: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.featureList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.featureItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--size-xs);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.featureLocked {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.featureCheck {
+  color: var(--mint-500, #10b981);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.featureCross {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ── 기능 요약 ── */
+
+.featureSummary {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.summaryCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.summaryColTitle {
+  font-size: var(--size-xs);
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+
+.summaryItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--size-xs);
+  color: var(--text-primary);
+}
+
+.summaryDivider {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  padding-top: 24px;
+}
+
+/* ── 성공 화면 ── */
+
+.successCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xl, 32px) var(--space-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 16px);
+  text-align: center;
+  margin-top: var(--space-xl, 32px);
+}
+
+.successIcon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.successTitle {
+  font-size: var(--size-xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.successDesc {
+  font-size: var(--size-md);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.goHomeBtn {
+  padding: var(--space-md) var(--space-xl, 32px);
+  background: var(--mint-500, #10b981);
+  border: none;
+  border-radius: var(--radius-full);
+  color: #fff;
+  font-size: var(--size-md);
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.goHomeBtn:hover { opacity: 0.85; }
+
+/* ── 반응형 ── */
+
+@media (max-width: 600px) {
+  .planCards {
+    grid-template-columns: 1fr;
+  }
+  .featureSummary {
+    flex-direction: column;
+  }
+  .summaryDivider {
+    align-self: center;
+    padding-top: 0;
+  }
+  .codeRow {
+    flex-direction: column;
+  }
+  .activateBtn {
+    width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .page {
+    padding: var(--space-lg);
+    padding-bottom: var(--space-lg);
+  }
+}

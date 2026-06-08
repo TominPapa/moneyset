@@ -6,7 +6,8 @@ import { useAppStore } from '../../app/store/appStore';
 import { localCache } from '../../storage/localCacheImpl';
 import { calcSafetySummary } from '../../domain/safety';
 import { buildSafetyInput } from '../../domain/safetyUtils';
-import type { Transaction, SafetySummary } from '../../domain/types';
+import type { Transaction, SafetySummary, BudgetPlan } from '../../domain/types';
+import { getBudgetPlan } from '../../storage/localPlanStore';
 import {
   IcBudget, IcWallet, IcSparkle, IcShield, IcCalendar, IcTrending,
   IcCheck, IcDownload, IcChevronLeft, IcChevronRight, IcInfo,
@@ -228,11 +229,23 @@ export function SafetyPage() {
   const config      = useAppStore(s => s.config);
   const activeMonth = useAppStore(s => s.activeMonth);
   const setActiveMonth = useAppStore(s => s.setActiveMonth);
+  const lastSyncedAt = useAppStore(s => s.lastSyncedAt);
+  const accounts    = useAppStore(s => s.accounts);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  useEffect(() => { localCache.getTransactions(activeMonth).then(setTransactions); }, [activeMonth]);
+  const [budgetPlan, setBudgetPlan] = useState<BudgetPlan | null>(null);
 
-  const safetyInput    = buildSafetyInput(transactions, config);
+  useEffect(() => {
+    Promise.all([
+      localCache.getTransactions(activeMonth),
+      getBudgetPlan(activeMonth),
+    ]).then(([txs, plan]) => {
+      setTransactions(txs);
+      setBudgetPlan(plan);
+    });
+  }, [activeMonth, lastSyncedAt]);
+
+  const safetyInput    = buildSafetyInput(transactions, config, new Date(), budgetPlan?.totalBudgetAmount ?? undefined, accounts);
   const summary: SafetySummary = calcSafetySummary(safetyInput);
   const levelColor     = safetyColor(summary.safetyLevel);
   const scoreNum       = summary.safetyScore;
@@ -247,10 +260,10 @@ export function SafetyPage() {
   function handleShareCard() {
     const expenseRatio = summary.monthlyBudgetBase > 0
       ? Math.round((summary.livingSpentSoFar / summary.monthlyBudgetBase) * 100) : 0;
-    const fixedRatio = income > 0
-      ? Math.round((fixedTotal / income) * 100) : 0;
+    const fixedRatio = rawIncome > 0
+      ? Math.round((fixedTotal / rawIncome) * 100) : 0;
     const emergencyMonths = fixedTotal > 0
-      ? Math.floor(summary.monthlySpendableRemaining / fixedTotal) : 0;
+      ? Math.max(0, Math.floor(summary.monthlySpendableRemaining / fixedTotal)) : 0;
 
     generateShareCard({
       score: scoreNum,
@@ -279,6 +292,8 @@ export function SafetyPage() {
 
   // Budget structure bars
   const income = config.expectedNetIncomeDefault || 1;
+  // 공유 카드 고정지출 비율 계산용 (income=0이면 비율 계산 불가 → 0으로 처리)
+  const rawIncome = config.expectedNetIncomeDefault;
 
   return (
     <div className={styles.page}>
@@ -343,13 +358,15 @@ export function SafetyPage() {
                 ))}
               </h1>
               <p className={styles.heroDesc}>
-                고정지출 대비 현재 잔액은 <b>{Math.max(0, Math.floor(summary.monthlySpendableRemaining / Math.max(1, fixedTotal)))}개월</b>을 버틸 수 있어요.
+                {fixedTotal > 0
+                  ? <>남은 생활비로 고정지출 <b>{Math.max(0, Math.floor(summary.monthlySpendableRemaining / fixedTotal))}개월분</b> 커버 가능해요.</>
+                  : '고정지출이 없어요.'}
               </p>
 
               {/* Pills */}
               <div className={styles.heroPills}>
                 <span className={styles.pillMint}><IcCheck size={12}/> 예산 페이스 {summary.safetyLevel === 'very_safe' || summary.safetyLevel === 'safe' ? '양호' : '주의'}</span>
-                <span className={styles.pillMint}><IcCheck size={12}/> 비상금 {Math.floor(summary.monthlySpendableRemaining / Math.max(1, fixedTotal)) >= 3 ? '충분' : '부족'}</span>
+                <span className={styles.pillMint}><IcCheck size={12}/> 비상금 {fixedTotal <= 0 ? '해당없음' : Math.floor(summary.monthlySpendableRemaining / fixedTotal) >= 3 ? '여유 충분' : '여유 부족'}</span>
                 {summary.weeklyOverspendRatio > 1.1 && (
                   <span className={styles.pillGold}><IcSparkle size={12}/> 주간 속도 주의</span>
                 )}
@@ -473,7 +490,7 @@ export function SafetyPage() {
               <div className={styles.subtitle} style={{ marginBottom: 12 }}>고정지출 커버 분석</div>
               <div style={{ display: 'flex', gap: 4 }}>
                 {Array.from({ length: 12 }).map((_, i) => {
-                  const monthsCover = fixedTotal > 0 ? Math.floor(summary.monthlySpendableRemaining / fixedTotal) : 0;
+                  const monthsCover = fixedTotal > 0 ? Math.max(0, Math.floor(summary.monthlySpendableRemaining / fixedTotal)) : 0;
                   const isCovered = i < Math.min(monthsCover, 12);
                   const isSoon    = i >= Math.min(monthsCover, 12) && i < Math.min(monthsCover + 2, 12);
                   return (

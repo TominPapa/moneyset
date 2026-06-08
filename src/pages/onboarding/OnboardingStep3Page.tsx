@@ -198,6 +198,15 @@ export function OnboardingStep3Page() {
             onChange={(v) => setForm((f) => ({ ...f, totalBalance: v }))}
             hint="대출/할부인 경우 입력"
           />
+          <Input
+            label="잔여 개월 (선택)"
+            type="number"
+            inputMode="numeric"
+            value={form.remainingMonths === 0 ? '' : String(form.remainingMonths)}
+            onChange={(e) => setForm((f) => ({ ...f, remainingMonths: Math.max(0, Number(e.target.value) || 0) }))}
+            hint="예: 24 (할부/대출 잔여 개월)"
+            placeholder="0"
+          />
           <Button variant="primary" size="lg" fullWidth onClick={handleSave}>
             추가
           </Button>

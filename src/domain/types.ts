@@ -148,6 +148,7 @@ export interface Account {
   institution?: string;
   balance: number;        // 사용자 수동 입력
   isActive: boolean;
+  isBudgetAccount?: boolean; // 생활비 통장 여부
   sortOrder: number;
   lastUpdatedAt: ISODateTime;
   createdAt: ISODateTime;
@@ -281,6 +282,7 @@ export interface RecurringItem {
   categoryId: string;
   nextDueDate: ISODate;
   enabled: boolean;
+  accountId?: string;      // 출금 계좌 ID
   // regular 전용
   cycle?: RecurringCycle;
   dayOfMonth?: number;

@@ -66,8 +66,9 @@ interface AnnualCategoryStat {
 // ─── StatsAnnualPage ──────────────────────────────────────────────────────────
 
 export function StatsAnnualPage() {
-  const config      = useAppStore((s) => s.config);
-  const activeMonth = useAppStore((s) => s.activeMonth);
+  const config       = useAppStore((s) => s.config);
+  const activeMonth  = useAppStore((s) => s.activeMonth);
+  const lastSyncedAt = useAppStore((s) => s.lastSyncedAt);
   const navigate    = useNavigate();
 
   const [year, setYear] = useState(() => Number(activeMonth.split('-')[0]));
@@ -90,7 +91,7 @@ export function StatsAnnualPage() {
       setMonthDataList(list);
       setLoading(false);
     });
-  }, [year]);
+  }, [year, lastSyncedAt]);
 
   const annualIncome  = monthDataList.reduce((s, d) => s + d.income, 0);
   const annualExpense = monthDataList.reduce((s, d) => s + d.expense, 0);
@@ -115,9 +116,12 @@ export function StatsAnnualPage() {
     .sort((a, b) => b.total - a.total)
     .slice(0, 8);
 
-  // 안전도 이력
+  // 안전도 이력 — 각 달의 마지막 날을 today로 주입해야 올바른 기간 계산이 됨
+  // (buildSafetyInput 내부의 remainingDays, periodStartStr 등이 today 기준이므로)
   const safetyList = monthDataList.map((d) => {
-    const input = buildSafetyInput(d.transactions, config);
+    const [sy, sm] = d.ym.split('-').map(Number);
+    const monthEnd = new Date(sy, sm, 0); // 해당 달 말일 (Day 0 of next month = last day)
+    const input = buildSafetyInput(d.transactions, config, monthEnd);
     const summary = calcSafetySummary(input);
     return {
       ym: d.ym, month: d.month,
