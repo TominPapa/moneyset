@@ -9,6 +9,7 @@ import type { Transaction, Category } from '../../domain/types';
 import {
   IcChevronLeft, IcChevronRight,
 } from '../../components/ui/Icons';
+import { getBudgetPeriodForMonth, getMonthsInPeriod, toLocalDateStr } from '../../domain/safetyUtils';
 import styles from './StatsMonthlyPage.module.css';
 
 // ─── Category colors ──────────────────────────────────────────────────────────
@@ -68,16 +69,7 @@ function fmtK(n: number): string {
   return String(n);
 }
 
-function getDaysInMonth(ym: string): number {
-  const [y, m] = ym.split('-').map(Number);
-  return new Date(y, m, 0).getDate();
-}
 
-function getFirstDayOfWeek(ym: string, weekStart: number): number {
-  const [y, m] = ym.split('-').map(Number);
-  const raw = new Date(y, m - 1, 1).getDay();
-  return (raw - weekStart + 7) % 7;
-}
 
 interface CategoryStat {
   category: Category | undefined;
@@ -171,18 +163,19 @@ function DonutChart({ cats }: { cats: CategoryStat[] }) {
 // ─── CalHeat ──────────────────────────────────────────────────────────────────
 
 function CalHeat({
-  ym, dailyMap, maxDailyExpense, weekStartDay, onSelectDate, selectedDate,
+  start, end, dailyMap, maxDailyExpense, weekStartDay, onSelectDate, selectedDate,
 }: {
-  ym: string;
+  start: Date;
+  end: Date;
   dailyMap: Map<string, { expense: number; income: number }>;
   maxDailyExpense: number;
   weekStartDay: number;
   onSelectDate: (d: string | null) => void;
   selectedDate: string | null;
 }) {
-  const daysInMonth = getDaysInMonth(ym);
-  const firstOffset = getFirstDayOfWeek(ym, weekStartDay);
-  const [y, m] = ym.split('-').map(Number);
+  const startDayOfWeek = start.getDay();
+  const firstOffset = (startDayOfWeek - weekStartDay + 7) % 7;
+  const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   const weekDayLabels = ['일', '월', '화', '수', '목', '금', '토'];
   const orderedLabels = [...weekDayLabels.slice(weekStartDay), ...weekDayLabels.slice(0, weekStartDay)];
 
@@ -193,15 +186,18 @@ function CalHeat({
       </div>
       <div className={styles.calGrid}>
         {Array.from({ length: firstOffset }).map((_, i) => <div key={`e${i}`}/>)}
-        {Array.from({ length: daysInMonth }, (_, i) => {
-          const day = i + 1;
-          const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        {Array.from({ length: totalDays }, (_, i) => {
+          const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+          const dateStr = toLocalDateStr(date);
+          const day = date.getDate();
+          const monthLabel = date.getDate() === 1 ? `${date.getMonth() + 1}/` : '';
+
           const data = dailyMap.get(dateStr);
           const intensity = data?.expense ? Math.min(1, data.expense / maxDailyExpense) : 0;
           const isSelected = selectedDate === dateStr;
           const hasData = !!(data?.expense || data?.income);
           return (
-            <div key={day}
+            <div key={dateStr}
               className={`${styles.calCell} ${isSelected ? styles.calCellSelected : ''}`}
               style={{
                 background: data?.expense
@@ -211,7 +207,7 @@ function CalHeat({
               }}
               onClick={() => hasData && onSelectDate(isSelected ? null : dateStr)}
             >
-              <span className={styles.calDay}>{day}</span>
+              <span className={styles.calDay}>{monthLabel}{day}</span>
               {data?.expense ? <span className={styles.calAmt} style={{ opacity: 0.4 + intensity * 0.6 }}>{fmtK(data.expense)}</span> : null}
             </div>
           );
@@ -259,9 +255,29 @@ export function StatsMonthlyPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   useEffect(() => {
-    localCache.getTransactions(activeMonth).then(setTransactions);
-    localCache.getTransactions(prevYM(activeMonth)).then(setPrevTransactions);
-  }, [activeMonth, lastSyncedAt]);
+    const { start: curStart, end: curEnd } = getBudgetPeriodForMonth(activeMonth, config);
+    const curMonths = getMonthsInPeriod(curStart, curEnd);
+    const curStartStr = toLocalDateStr(curStart);
+    const curEndStr = toLocalDateStr(curEnd);
+
+    const prevYMStr = prevYM(activeMonth);
+    const { start: prevStart, end: prevEnd } = getBudgetPeriodForMonth(prevYMStr, config);
+    const prevMonths = getMonthsInPeriod(prevStart, prevEnd);
+    const prevStartStr = toLocalDateStr(prevStart);
+    const prevEndStr = toLocalDateStr(prevEnd);
+
+    Promise.all(curMonths.map(ym => localCache.getTransactions(ym)))
+      .then(results => {
+        const allTxs = results.flat();
+        setTransactions(allTxs.filter(t => t.date >= curStartStr && t.date <= curEndStr));
+      });
+
+    Promise.all(prevMonths.map(ym => localCache.getTransactions(ym)))
+      .then(results => {
+        const allTxs = results.flat();
+        setPrevTransactions(allTxs.filter(t => t.date >= prevStartStr && t.date <= prevEndStr));
+      });
+  }, [activeMonth, lastSyncedAt, config]);
 
   // Aggregate
   const totalExpense = transactions.filter(t => t.entryKind === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -273,24 +289,36 @@ export function StatsMonthlyPage() {
   const dailyMap = buildDailyMap(transactions);
   const maxDailyExpense = Math.max(1, ...Array.from(dailyMap.values()).map(v => v.expense));
 
-  const [y, m] = activeMonth.split('-').map(Number);
-  const daysInMonth = getDaysInMonth(activeMonth);
-  const dailyExpenses = Array.from({ length: daysInMonth }, (_, i) => {
-    const day = i + 1;
-    const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    return { day, amount: dailyMap.get(dateStr)?.expense ?? 0 };
+  const { start: periodStart, end: periodEnd } = getBudgetPeriodForMonth(activeMonth, config);
+  const totalDays = Math.round((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  const dailyExpenses = Array.from({ length: totalDays }, (_, i) => {
+    const date = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate() + i);
+    const dateStr = toLocalDateStr(date);
+    return { day: i + 1, dateStr, amount: dailyMap.get(dateStr)?.expense ?? 0 };
   });
 
   // Stats for bar chart header
   const maxDailyAmt = Math.max(0, ...dailyExpenses.map(d => d.amount));
-  // avgDailyAmt: 경과 일수 기준 (RecordPage와 동일 기준으로 통일)
+  
+  // avgDailyAmt: 경과 일수 기준
   const today = new Date();
-  const [cy, cm] = activeMonth.split('-').map(Number);
-  const elapsedDays = (today.getFullYear() === cy && today.getMonth() + 1 === cm)
-    ? today.getDate() : daysInMonth;
+  
+  let elapsedDays = totalDays;
+  if (today >= periodStart && today <= periodEnd) {
+    const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startZero = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate());
+    elapsedDays = Math.round((todayZero.getTime() - startZero.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  } else if (today < periodStart) {
+    elapsedDays = 0;
+  }
+
   const avgDailyAmt = elapsedDays > 0 ? Math.round(totalExpense / elapsedDays) : 0;
-  // 무지출일: 미래 날짜(아직 경과하지 않은 날)는 제외
-  const zeroDays = dailyExpenses.filter(d => d.day <= elapsedDays && d.amount === 0).length;
+  // 무지출일: 미래 날짜는 제외
+  const zeroDays = dailyExpenses.filter(d => {
+    const dDate = new Date(d.dateStr);
+    return dDate <= today && d.amount === 0;
+  }).length;
 
   // Day-of-week analysis (0=Sun ... 6=Sat)
   const DOW_KO = ['일','월','화','수','목','금','토'];
@@ -399,7 +427,8 @@ export function StatsMonthlyPage() {
               <span style={{ fontSize: 11, color: 'var(--text-3)' }}>색 진할수록 지출 많음</span>
             </div>
             <CalHeat
-              ym={activeMonth}
+              start={periodStart}
+              end={periodEnd}
               dailyMap={dailyMap}
               maxDailyExpense={maxDailyExpense}
               weekStartDay={config.weekStartDay}
@@ -414,7 +443,7 @@ export function StatsMonthlyPage() {
           <div className={styles.cardHead}>
             <div>
               <div className={styles.cardLabel}>일별 지출 추이</div>
-              <div className={styles.barChartTitle}>지난 {daysInMonth}일 소비 리듬</div>
+              <div className={styles.barChartTitle}>지난 {totalDays}일 소비 리듬</div>
             </div>
             <div className={styles.barChartStats}>
               <div className={styles.barStat}>
@@ -433,17 +462,20 @@ export function StatsMonthlyPage() {
           </div>
           <DailyBarChart data={dailyExpenses}/>
           <div className={styles.barAxisLabels}>
-            {/* activeMonth = "YYYY-MM" → 월.일 형식으로 표시 */}
             {(() => {
-              const mm = activeMonth.slice(5); // "05"
-              const dd = (d: number) => String(d).padStart(2, '0');
+              const fmtDate = (d: Date) => `${d.getMonth() + 1}.${String(d.getDate()).padStart(2, '0')}`;
+              const d1 = periodStart;
+              const d2 = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate() + Math.round(totalDays * 0.25));
+              const d3 = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate() + Math.round(totalDays * 0.5));
+              const d4 = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate() + Math.round(totalDays * 0.75));
+              const d5 = periodEnd;
               return (
                 <>
-                  <span>{mm}.01</span>
-                  <span>{mm}.08</span>
-                  <span>{mm}.15</span>
-                  <span>{mm}.22</span>
-                  <span>{mm}.{dd(daysInMonth)}</span>
+                  <span>{fmtDate(d1)}</span>
+                  <span>{fmtDate(d2)}</span>
+                  <span>{fmtDate(d3)}</span>
+                  <span>{fmtDate(d4)}</span>
+                  <span>{fmtDate(d5)}</span>
                 </>
               );
             })()}

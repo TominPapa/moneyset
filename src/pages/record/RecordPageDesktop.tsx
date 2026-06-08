@@ -14,6 +14,7 @@ import {
 } from '../../components/ui/Icons';
 import type { Transaction, SharedExpense, SplitMode, Account } from '../../domain/types';
 import { calcSplit } from '../../domain/sharedSettlement';
+import { getBudgetPeriodForMonth, getMonthsInPeriod, toLocalDateStr } from '../../domain/safetyUtils';
 import styles from './RecordPage.module.css';
 
 // ─── utils ────────────────────────────────────────────────────────────────────
@@ -156,8 +157,19 @@ export function RecordPageDesktop() {
   useEffect(() => { return () => { void flushDrive(); }; }, [flushDrive]);
   useEffect(() => {
     setLoading(true);
-    localCache.getTransactions(activeMonth).then(setTransactions).finally(() => setLoading(false));
-  }, [activeMonth, lastSyncedAt]);
+    const { start, end } = getBudgetPeriodForMonth(activeMonth, config);
+    const months = getMonthsInPeriod(start, end);
+    const startStr = toLocalDateStr(start);
+    const endStr = toLocalDateStr(end);
+
+    Promise.all(months.map(ym => localCache.getTransactions(ym)))
+      .then((results) => {
+        const allTxs = results.flat();
+        const filtered = allTxs.filter(t => t.date >= startStr && t.date <= endStr);
+        setTransactions(filtered);
+      })
+      .finally(() => setLoading(false));
+  }, [activeMonth, lastSyncedAt, config]);
 
   const handleSave = useCallback(async (
     tx: Transaction,
@@ -167,14 +179,17 @@ export function RecordPageDesktop() {
     myCustomAmount?: number
   ) => {
     const initial = editing;
+    const targetYM = tx.date.slice(0, 7);
+    const initialYM = initial ? initial.date.slice(0, 7) : targetYM;
+
     if (tx.sharedExpenseId && (!tx.isShared || !counterpartyId)) {
-      const seList = await localCache.getSharedExpenses(activeMonth);
+      const seList = await localCache.getSharedExpenses(initialYM);
       const filtered = seList.filter(se => se.id !== tx.sharedExpenseId);
-      await localCache.setSharedExpenses(activeMonth, filtered);
+      await localCache.setSharedExpenses(initialYM, filtered);
       tx = { ...tx, sharedExpenseId: undefined };
       scheduleDrive(async () => {
-        const updated = await localCache.getSharedExpenses(activeMonth);
-        await driveAdapter.writeSharedExpenses(activeMonth, makeEnvelope(`shared/${activeMonth}.shared-expenses.json`, updated));
+        const updated = await localCache.getSharedExpenses(initialYM);
+        await driveAdapter.writeSharedExpenses(initialYM, makeEnvelope(`shared/${initialYM}.shared-expenses.json`, updated));
       });
     }
     if (tx.isShared && counterpartyId) {
@@ -182,7 +197,7 @@ export function RecordPageDesktop() {
       const mode = splitMode ?? 'equal';
       const { myShareAmount, counterpartyShareAmount } = calcSplit(tx.amount, mode, myRatio, myCustomAmount);
 
-      const seList = await localCache.getSharedExpenses(activeMonth);
+      const seList = await localCache.getSharedExpenses(targetYM);
       const existing = seList.find(se => se.id === tx.sharedExpenseId);
 
       if (existing) {
@@ -194,7 +209,7 @@ export function RecordPageDesktop() {
           counterpartyShareAmount: Math.round(counterpartyShareAmount),
           updatedAt: now,
         };
-        await localCache.upsertSharedExpense(activeMonth, updatedSe);
+        await localCache.upsertSharedExpense(targetYM, updatedSe);
       } else {
         const expense: SharedExpense = {
           id: `se_${crypto.randomUUID()}`, transactionId: tx.id,
@@ -203,12 +218,22 @@ export function RecordPageDesktop() {
           settledInAmount: 0, settledOutAmount: 0, status: 'open', createdAt: now, updatedAt: now,
         };
         tx = { ...tx, sharedExpenseId: expense.id };
-        await localCache.upsertSharedExpense(activeMonth, expense);
+        await localCache.upsertSharedExpense(targetYM, expense);
+      }
+
+      if (initial && initialYM !== targetYM && initial.sharedExpenseId) {
+        const prevSeList = await localCache.getSharedExpenses(initialYM);
+        const filteredPrevSe = prevSeList.filter(se => se.id !== initial.sharedExpenseId);
+        await localCache.setSharedExpenses(initialYM, filteredPrevSe);
+        scheduleDrive(async () => {
+          const updatedPrev = await localCache.getSharedExpenses(initialYM);
+          await driveAdapter.writeSharedExpenses(initialYM, makeEnvelope(`shared/${initialYM}.shared-expenses.json`, updatedPrev));
+        });
       }
 
       scheduleDrive(async () => {
-        const updated = await localCache.getSharedExpenses(activeMonth);
-        await driveAdapter.writeSharedExpenses(activeMonth, makeEnvelope(`shared/${activeMonth}.shared-expenses.json`, updated));
+        const updated = await localCache.getSharedExpenses(targetYM);
+        await driveAdapter.writeSharedExpenses(targetYM, makeEnvelope(`shared/${targetYM}.shared-expenses.json`, updated));
       });
     }
 
@@ -216,30 +241,47 @@ export function RecordPageDesktop() {
     setAccounts(updatedAccounts);
     await localCache.setAccounts(updatedAccounts);
 
-    await localCache.upsertTransaction(activeMonth, tx);
-    setTransactions(await localCache.getTransactions(activeMonth));
+    if (initial && initialYM !== targetYM) {
+      await localCache.deleteTransaction(initialYM, initial.id);
+      scheduleDrive(async () => {
+        const latestPrev = await localCache.getTransactions(initialYM);
+        await driveAdapter.writeTransactions(initialYM, makeEnvelope(`months/${initialYM}.transactions.json`, latestPrev));
+      });
+    }
+
+    await localCache.upsertTransaction(targetYM, tx);
+
+    const { start, end } = getBudgetPeriodForMonth(activeMonth, config);
+    const months = getMonthsInPeriod(start, end);
+    const results = await Promise.all(months.map(ym => localCache.getTransactions(ym)));
+    const allTxs = results.flat();
+    const startStr = toLocalDateStr(start);
+    const endStr = toLocalDateStr(end);
+    setTransactions(allTxs.filter(t => t.date >= startStr && t.date <= endStr));
+
     setSheetOpen(false);
     setEditing(undefined);
     scheduleDrive(async () => {
-      const latest = await localCache.getTransactions(activeMonth);
+      const latest = await localCache.getTransactions(targetYM);
       await Promise.all([
-        driveAdapter.writeTransactions(activeMonth, makeEnvelope(`months/${activeMonth}.transactions.json`, latest)),
+        driveAdapter.writeTransactions(targetYM, makeEnvelope(`months/${targetYM}.transactions.json`, latest)),
         driveAdapter.writeAccounts(makeEnvelope('accounts.json', updatedAccounts)),
       ]);
     });
-  }, [activeMonth, accounts, setAccounts, editing, scheduleDrive]);
+  }, [activeMonth, accounts, setAccounts, editing, scheduleDrive, config]);
 
   const handleDelete = useCallback(async (id: string) => {
-    const txList = await localCache.getTransactions(activeMonth);
-    const target = txList.find(t => t.id === id);
+    const target = transactions.find(t => t.id === id);
     if (!target) return;
+    const targetYM = target.date.slice(0, 7);
+
     if (target.sharedExpenseId) {
-      const seList = await localCache.getSharedExpenses(activeMonth);
+      const seList = await localCache.getSharedExpenses(targetYM);
       const filtered = seList.filter(se => se.id !== target.sharedExpenseId);
-      await localCache.setSharedExpenses(activeMonth, filtered);
+      await localCache.setSharedExpenses(targetYM, filtered);
       scheduleDrive(async () => {
-        const updated = await localCache.getSharedExpenses(activeMonth);
-        await driveAdapter.writeSharedExpenses(activeMonth, makeEnvelope(`shared/${activeMonth}.shared-expenses.json`, updated));
+        const updated = await localCache.getSharedExpenses(targetYM);
+        await driveAdapter.writeSharedExpenses(targetYM, makeEnvelope(`shared/${targetYM}.shared-expenses.json`, updated));
       });
     }
 
@@ -247,18 +289,26 @@ export function RecordPageDesktop() {
     setAccounts(updatedAccounts);
     await localCache.setAccounts(updatedAccounts);
 
-    await localCache.deleteTransaction(activeMonth, id);
-    setTransactions(await localCache.getTransactions(activeMonth));
+    await localCache.deleteTransaction(targetYM, id);
+
+    const { start, end } = getBudgetPeriodForMonth(activeMonth, config);
+    const months = getMonthsInPeriod(start, end);
+    const results = await Promise.all(months.map(ym => localCache.getTransactions(ym)));
+    const allTxs = results.flat();
+    const startStr = toLocalDateStr(start);
+    const endStr = toLocalDateStr(end);
+    setTransactions(allTxs.filter(t => t.date >= startStr && t.date <= endStr));
+
     setSheetOpen(false);
     setEditing(undefined);
     scheduleDrive(async () => {
-      const latest = await localCache.getTransactions(activeMonth);
+      const latest = await localCache.getTransactions(targetYM);
       await Promise.all([
-        driveAdapter.writeTransactions(activeMonth, makeEnvelope(`months/${activeMonth}.transactions.json`, latest)),
+        driveAdapter.writeTransactions(targetYM, makeEnvelope(`months/${targetYM}.transactions.json`, latest)),
         driveAdapter.writeAccounts(makeEnvelope('accounts.json', updatedAccounts)),
       ]);
     });
-  }, [activeMonth, accounts, setAccounts, scheduleDrive]);
+  }, [activeMonth, accounts, setAccounts, scheduleDrive, transactions, config]);
 
   const handleEdit = (tx: Transaction) => { setEditing(tx); setSheetOpen(true); };
   const handleAdd  = () => { setEditing(undefined); setSheetOpen(true); };
@@ -295,11 +345,18 @@ export function RecordPageDesktop() {
 
   const grouped = groupByDate(filtered);
 
-  const [y, mo]  = activeMonth.split('-').map(Number);
-  const daysInMonth = new Date(y, mo, 0).getDate();
-  const today    = new Date();
-  const elapsed  = (today.getFullYear() === y && today.getMonth() + 1 === mo)
-    ? today.getDate() : daysInMonth;
+  const { start: periodStart, end: periodEnd } = getBudgetPeriodForMonth(activeMonth, config);
+  const totalDays = Math.round((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const today = new Date();
+  
+  let elapsed = totalDays;
+  if (today >= periodStart && today <= periodEnd) {
+    const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startZero = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate());
+    elapsed = Math.round((todayZero.getTime() - startZero.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  } else if (today < periodStart) {
+    elapsed = 0;
+  }
   const dailyAvg = elapsed > 0 ? Math.round(totalExpense / elapsed) : 0;
 
   return (
@@ -462,6 +519,8 @@ export function RecordPageDesktop() {
         <TransactionForm
           initial={editing}
           ym={activeMonth}
+          minDate={toLocalDateStr(periodStart)}
+          maxDate={toLocalDateStr(periodEnd)}
           categories={config.categories}
           paymentMethods={config.paymentMethods}
           counterparties={config.counterparties}

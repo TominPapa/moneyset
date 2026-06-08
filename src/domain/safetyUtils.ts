@@ -60,6 +60,46 @@ export function getBudgetPeriod(
   }
 }
 
+/**
+ * activeMonth ("YYYY-MM") 기준 해당 예산 기간의 시작/끝 날짜 반환
+ */
+export function getBudgetPeriodForMonth(
+  ym: string,
+  config: Pick<AppConfig, 'monthMode' | 'payday'>,
+): { start: Date; end: Date } {
+  const [y, m] = ym.split('-').map(Number);
+  if (config.monthMode === 'calendar') {
+    return {
+      start: new Date(y, m - 1, 1),
+      end: new Date(y, m, 0),
+    };
+  }
+
+  // payday 모드
+  const p = config.payday;
+  return {
+    start: new Date(y, m - 2, p),
+    end: new Date(y, m - 1, p - 1),
+  };
+}
+
+/**
+ * 두 날짜 사이의 모든 YYYY-MM 월 목록 반환
+ */
+export function getMonthsInPeriod(start: Date, end: Date): string[] {
+  const months: string[] = [];
+  const curr = new Date(start.getFullYear(), start.getMonth(), 1);
+  const last = new Date(end.getFullYear(), end.getMonth(), 1);
+  
+  while (curr <= last) {
+    const y = curr.getFullYear();
+    const m = String(curr.getMonth() + 1).padStart(2, '0');
+    months.push(`${y}-${m}`);
+    curr.setMonth(curr.getMonth() + 1);
+  }
+  return months;
+}
+
 // ─── 주간 범위 ────────────────────────────────────────────────────────────────
 
 /**

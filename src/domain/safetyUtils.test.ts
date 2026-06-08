@@ -8,6 +8,8 @@ import {
   getWeekBounds,
   calcAssetSummary,
   toLocalDateStr,
+  getBudgetPeriodForMonth,
+  getMonthsInPeriod,
 } from './safetyUtils';
 import { defaultAppConfig, defaultCategories } from './fixtures';
 import type { Transaction, Account, Liability, AppConfig } from './types';
@@ -326,5 +328,43 @@ describe('calcAssetSummary', () => {
   it('lastUpdatedAt = 가장 최근 갱신 계좌 시각', () => {
     const summary = calcAssetSummary(baseAccounts, []);
     expect(summary.lastUpdatedAt).toBe('2026-04-10T00:00:00.000Z'); // a3
+  });
+});
+
+// ─── 6. getBudgetPeriodForMonth & getMonthsInPeriod ──────────────────────────────────
+
+describe('getBudgetPeriodForMonth', () => {
+  it('calendar 모드: 6월 → 6/1 ~ 6/30', () => {
+    const { start, end } = getBudgetPeriodForMonth('2026-06', { monthMode: 'calendar', payday: 22 });
+    expect(toLocalDateStr(start)).toBe('2026-06-01');
+    expect(toLocalDateStr(end)).toBe('2026-06-30');
+  });
+
+  it('payday 모드: 6월 (급여일 22) → 5/22 ~ 6/21', () => {
+    const { start, end } = getBudgetPeriodForMonth('2026-06', { monthMode: 'payday', payday: 22 });
+    expect(toLocalDateStr(start)).toBe('2026-05-22');
+    expect(toLocalDateStr(end)).toBe('2026-06-21');
+  });
+
+  it('payday 모드: 1월 (급여일 22, 연도 바뀜) → 이전해 12/22 ~ 올해 1/21', () => {
+    const { start, end } = getBudgetPeriodForMonth('2026-01', { monthMode: 'payday', payday: 22 });
+    expect(toLocalDateStr(start)).toBe('2025-12-22');
+    expect(toLocalDateStr(end)).toBe('2026-01-21');
+  });
+});
+
+describe('getMonthsInPeriod', () => {
+  it('5/22 ~ 6/21 → ["2026-05", "2026-06"]', () => {
+    const start = new Date(2026, 4, 22);
+    const end = new Date(2026, 5, 21);
+    const result = getMonthsInPeriod(start, end);
+    expect(result).toEqual(['2026-05', '2026-06']);
+  });
+
+  it('6/1 ~ 6/30 → ["2026-06"]', () => {
+    const start = new Date(2026, 5, 1);
+    const end = new Date(2026, 5, 30);
+    const result = getMonthsInPeriod(start, end);
+    expect(result).toEqual(['2026-06']);
   });
 });

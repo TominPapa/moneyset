@@ -21,6 +21,8 @@ interface TransactionFormProps {
   initial?: Transaction;
   defaultDate?: string; // 신규 입력 시 날짜 pre-fill (initial 없을 때만 적용)
   ym: string;           // YYYY-MM
+  minDate?: string;
+  maxDate?: string;
   categories: Category[];
   paymentMethods: PaymentMethod[];
   counterparties: Counterparty[];
@@ -53,6 +55,8 @@ export function TransactionForm({
   initial,
   defaultDate,
   ym,
+  minDate,
+  maxDate,
   categories,
   paymentMethods,
   counterparties,
@@ -219,8 +223,8 @@ export function TransactionForm({
         type="date"
         value={date}
         onChange={(e) => setDate(e.target.value)}
-        min={ymToDate(ym)}
-        max={ymLastDate(ym)}
+        min={minDate ?? ymToDate(ym)}
+        max={maxDate ?? ymLastDate(ym)}
       />
 
       {/* 금액 */}

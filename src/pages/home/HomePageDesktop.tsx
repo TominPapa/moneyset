@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store/appStore';
 import { localCache } from '../../storage/localCacheImpl';
 import { calcSafetySummary } from '../../domain/safety';
-import { buildSafetyInput, calcAssetSummary } from '../../domain/safetyUtils';
+import { buildSafetyInput, calcAssetSummary, getBudgetPeriodForMonth, getMonthsInPeriod } from '../../domain/safetyUtils';
 import { detectReset } from '../../domain/reset';
 import { calcSharedSettlementSummary } from '../../domain/sharedSettlement';
 import { getBudgetPlan, getRecurringItems } from '../../storage/localPlanStore';
@@ -294,13 +294,27 @@ export function HomePageDesktop() {
   const [budgetPlan, setBudgetPlan]           = useState<BudgetPlan | null>(null);
 
   useEffect(() => {
-    const [y, m] = activeMonth.split('-').map(Number);
-    const prevDate = new Date(y, m - 2, 1);
-    const prevYMStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
+    const { start: curStart, end: curEnd } = getBudgetPeriodForMonth(activeMonth, config);
+    const curMonths = getMonthsInPeriod(curStart, curEnd);
+    const curStartStr = toLocalDateStr(curStart);
+    const curEndStr = toLocalDateStr(curEnd);
+
+    const prevYMStr = prevYM(activeMonth);
+    const { start: prevStart, end: prevEnd } = getBudgetPeriodForMonth(prevYMStr, config);
+    const prevMonths = getMonthsInPeriod(prevStart, prevEnd);
+    const prevStartStr = toLocalDateStr(prevStart);
+    const prevEndStr = toLocalDateStr(prevEnd);
+
     Promise.all([
-      localCache.getTransactions(activeMonth),
-      localCache.getTransactions(prevYMStr),
-      localCache.getSharedExpenses(activeMonth),
+      Promise.all(curMonths.map(ym => localCache.getTransactions(ym))).then(results => {
+        return results.flat().filter(t => t.date >= curStartStr && t.date <= curEndStr);
+      }),
+      Promise.all(prevMonths.map(ym => localCache.getTransactions(ym))).then(results => {
+        return results.flat().filter(t => t.date >= prevStartStr && t.date <= prevEndStr);
+      }),
+      Promise.all(curMonths.map(ym => localCache.getSharedExpenses(ym))).then(results => {
+        return results.flat();
+      }),
       localCache.getSettlementTransfers(),
       getRecurringItems(),
       getBudgetPlan(activeMonth),
@@ -312,7 +326,7 @@ export function HomePageDesktop() {
       setRecurringItems(recurring);
       setBudgetPlan(plan);
     });
-  }, [activeMonth, lastSyncedAt]);
+  }, [activeMonth, lastSyncedAt, config]);
 
   useEffect(() => {
     (async () => {
@@ -346,7 +360,11 @@ export function HomePageDesktop() {
     setBannerDismissed(true);
   };
 
-  const safetyInput    = buildSafetyInput(transactions, config, new Date(), budgetPlan?.totalBudgetAmount ?? undefined, accounts);
+  const realToday = new Date();
+  const { start: periodStart, end: periodEnd } = getBudgetPeriodForMonth(activeMonth, config);
+  const virtualToday = realToday < periodStart ? periodStart : realToday;
+
+  const safetyInput    = buildSafetyInput(transactions, config, virtualToday, budgetPlan?.totalBudgetAmount ?? undefined, accounts);
   const summary: SafetySummary = calcSafetySummary(safetyInput);
   const settlement     = calcSharedSettlementSummary(sharedExpenses, transfers, activeMonth);
   const scoreNum       = Math.round(summary.safetyScore);
@@ -375,25 +393,36 @@ export function HomePageDesktop() {
 
   const dailyLimit     = Math.round(summary.dailyRecommendedLimit);
   const budgetBase     = summary.monthlyBudgetBase;
-  const weeks = [
-    { label: '1주차', from: 1, to: 7 },
-    { label: '2주차', from: 8, to: 14 },
-    { label: '3주차', from: 15, to: 21 },
-    { label: '4주차', from: 22, to: daysInMonth },
+
+  const totalDays = Math.round((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const weekRanges = [
+    { label: '1주차', startOffset: 0, endOffset: 6 },
+    { label: '2주차', startOffset: 7, endOffset: 13 },
+    { label: '3주차', startOffset: 14, endOffset: 20 },
+    { label: '4주차', startOffset: 21, endOffset: totalDays - 1 },
   ];
-  const weekBudgets = weeks.map(wk =>
-    budgetBase > 0 ? Math.round(budgetBase * (wk.to - wk.from + 1) / daysInMonth) : 0
-  );
-  function weekSpent(from: number, to: number): number {
-    const fStr = `${activeMonth}-${String(from).padStart(2,'0')}`;
-    const tStr = `${activeMonth}-${String(to).padStart(2,'0')}`;
+  const weekBudgets = weekRanges.map(wk => {
+    const days = wk.endOffset - wk.startOffset + 1;
+    return budgetBase > 0 ? Math.round(budgetBase * days / totalDays) : 0;
+  });
+  function weekSpent(startOffset: number, endOffset: number): number {
+    const dStart = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate() + startOffset);
+    const dEnd = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate() + endOffset);
+    const fStr = toLocalDateStr(dStart);
+    const tStr = toLocalDateStr(dEnd);
     return transactions.filter(t => {
       if (t.entryKind !== 'expense') return false;
       if (t.date < fStr || t.date > tStr) return false;
       return categoryMap.get(t.categoryId)?.budgetGroup === 'living';
     }).reduce((s,t) => s+t.amount, 0);
   }
-  const curWeekIdx = isCurrentMonth ? (todayDay <= 7 ? 0 : todayDay <= 14 ? 1 : todayDay <= 21 ? 2 : 3) : -1;
+  let curWeekIdx = -1;
+  if (isCurrentMonth) {
+    const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startZero = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate());
+    const daysFromStart = Math.round((todayZero.getTime() - startZero.getTime()) / (1000 * 60 * 60 * 24));
+    curWeekIdx = weekRanges.findIndex(wk => daysFromStart >= wk.startOffset && daysFromStart <= wk.endOffset);
+  }
 
   const categoryExpenseMap = new Map<string, number>();
   for (const tx of transactions) {
@@ -666,8 +695,8 @@ export function HomePageDesktop() {
               <span style={{ fontSize: 11, color: 'var(--text-2)' }}>총 {fmtShort(budgetBase)}원</span>
             </div>
             <div className={styles.weeklyList}>
-              {weeks.map((wk, i) => {
-                const spent = weekSpent(wk.from, wk.to);
+              {weekRanges.map((wk, i) => {
+                const spent = weekSpent(wk.startOffset, wk.endOffset);
                 const pct = weekBudgets[i] > 0 ? Math.min(100, Math.round((spent/weekBudgets[i])*100)) : 0;
                 const isNow = i === curWeekIdx;
                 const barC = pct >= 100 ? 'var(--safe-5)' : pct >= 80 ? 'var(--safe-3)' : isNow ? 'var(--gold-500)' : 'var(--mint-600)';
