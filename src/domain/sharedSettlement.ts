@@ -93,6 +93,8 @@ export function calcSharedSettlementSummary(
   expenses: SharedExpense[],
   transfers: SettlementTransfer[],
   currentMonth: string, // YYYY-MM
+  periodStart?: string,
+  periodEnd?: string,
 ): SharedSettlementSummary {
   let outstandingReceivable = 0;
   let outstandingPayable = 0;
@@ -108,7 +110,12 @@ export function calcSharedSettlementSummary(
 
   // 이번 달 정산 송금 합계
   const settledThisMonthAmount = transfers
-    .filter(t => t.transferredAt.startsWith(currentMonth))
+    .filter(t => {
+      if (periodStart && periodEnd) {
+        return t.transferredAt >= periodStart && t.transferredAt <= periodEnd;
+      }
+      return t.transferredAt.startsWith(currentMonth);
+    })
     .reduce((sum, t) => sum + t.amount, 0);
 
   return {

@@ -4,9 +4,10 @@
 import { describe, it, expect } from 'vitest';
 import { calcSafetySummary } from './safety';
 import type { SafetyInput } from './safety';
-import { calcAssetSummary } from './safetyUtils';
+import { calcAssetSummary, getBudgetPeriodForMonth, getMonthsInPeriod, toLocalDateStr, buildSafetyInput, getBudgetMonthForDate } from './safetyUtils';
 import { calcSplit, calcNetReceivable, deriveExpenseStatus } from './sharedSettlement';
-import type { Account, Liability, SharedExpense, SettlementTransfer } from './types';
+import type { Account, Liability, SharedExpense, SettlementTransfer, Transaction, AppConfig } from './types';
+import { defaultAppConfig } from './fixtures';
 
 describe('데이터 무결성 전수검사 (Exhaustive Permutation Testing)', () => {
   it('SafetySummary - 다양한 경계값과 난수 조합(50,000개)에서 에러나 비정상값(NaN, Infinity, undefined)이 없는지 검증', () => {
@@ -182,4 +183,100 @@ describe('데이터 무결성 전수검사 (Exhaustive Permutation Testing)', ()
     const status = deriveExpenseStatus(expense, transfers);
     expect(status).toBe('settled'); // 0.5 < 1원 미만이므로 'settled'로 판정됨
   });
+
+  it('Payday 모드 예산 기간 겹침 및 다중 월 거래 로드 시뮬레이션 검증', () => {
+    const config: AppConfig = {
+      ...defaultAppConfig,
+      monthMode: 'payday',
+      payday: 22,
+      expectedNetIncomeDefault: 3000000,
+      savingsTargetDefault: 500000,
+    };
+
+    const activeMonth = '2026-06';
+    const { start, end } = getBudgetPeriodForMonth(activeMonth, config);
+    
+    expect(toLocalDateStr(start)).toBe('2026-05-22');
+    expect(toLocalDateStr(end)).toBe('2026-06-21');
+
+    const months = getMonthsInPeriod(start, end);
+    expect(months).toEqual(['2026-05', '2026-06']);
+
+    const mockAllTransactions: Transaction[] = [
+      { id: 't1', ledgerMonth: '2026-05', date: '2026-05-25', entryKind: 'income', title: '5월 월급', amount: 3000000, categoryId: 'cat_salary', isShared: false, createdAt: '', updatedAt: '' },
+      { id: 't2', ledgerMonth: '2026-05', date: '2026-05-26', entryKind: 'expense', title: '5월 지출', amount: 100000, categoryId: 'cat_food', isShared: false, createdAt: '', updatedAt: '' },
+      { id: 't3', ledgerMonth: '2026-06', date: '2026-06-05', entryKind: 'expense', title: '6월 지출', amount: 200000, categoryId: 'cat_food', isShared: false, createdAt: '', updatedAt: '' },
+      { id: 't4', ledgerMonth: '2026-04', date: '2026-04-25', entryKind: 'expense', title: '4월 지출', amount: 50000, categoryId: 'cat_food', isShared: false, createdAt: '', updatedAt: '' },
+      { id: 't5', ledgerMonth: '2026-06', date: '2026-06-25', entryKind: 'expense', title: '6월 말 지출', amount: 100000, categoryId: 'cat_food', isShared: false, createdAt: '', updatedAt: '' },
+    ];
+
+    const startStr = toLocalDateStr(start);
+    const endStr = toLocalDateStr(end);
+    const filteredTxs = mockAllTransactions.filter(t => t.date >= startStr && t.date <= endStr);
+
+    expect(filteredTxs.length).toBe(3);
+    expect(filteredTxs.map(t => t.id)).toEqual(['t1', 't2', 't3']);
+
+    const totalIncome = filteredTxs.filter(t => t.entryKind === 'income').reduce((s, t) => s + t.amount, 0);
+    const totalExpense = filteredTxs.filter(t => t.entryKind === 'expense').reduce((s, t) => s + t.amount, 0);
+
+    expect(totalIncome).toBe(3000000);
+    expect(totalExpense).toBe(300000);
+
+    const today = new Date(2026, 5, 9);
+    const safetyInput = buildSafetyInput(filteredTxs, config, today, undefined, []);
+    const summary = calcSafetySummary(safetyInput);
+
+    expect(summary.livingSpentSoFar).toBe(300000);
+    expect(summary.monthlySpendableRemaining).toBeGreaterThan(0);
+    expect(Number.isNaN(summary.safetyScore)).toBe(false);
+  });
+
+  it('Payday 모드 getBudgetMonthForDate 와 getBudgetPeriodForMonth 의 365일 수학적 무결성 전수 검증', () => {
+    // payday 가 1일부터 31일까지일 때, 2026년의 모든 날짜에 대해 교차 검증
+    const paydays = Array.from({ length: 31 }, (_, i) => i + 1);
+    
+    // 2026-01-01 ~ 2026-12-31 루프
+    const startDate = new Date(2026, 0, 1);
+    const endDate = new Date(2026, 11, 31);
+    
+    let verifiedCount = 0;
+    
+    for (const p of paydays) {
+      const config: Pick<AppConfig, 'monthMode' | 'payday'> = {
+        monthMode: 'payday',
+        payday: p,
+      };
+      
+      const curr = new Date(startDate.getTime());
+      while (curr <= endDate) {
+        // 1. 해당 날짜에 대한 activeMonth 도출
+        const ym = getBudgetMonthForDate(curr, config);
+        
+        // 2. 그 activeMonth 에 해당하는 예산 주기를 다시 계산
+        const { start, end } = getBudgetPeriodForMonth(ym, config);
+        
+        // 로컬 날짜 문자열로 변환하여 비교
+        const currStr = toLocalDateStr(curr);
+        const startStr = toLocalDateStr(start);
+        const endStr = toLocalDateStr(end);
+        
+        // 3. 오늘 날짜가 해당 예산 주기 범위 내에 정확히 포함되어 있는지 검증!
+        const isWithin = currStr >= startStr && currStr <= endStr;
+        
+        if (!isWithin) {
+          console.error(`Mismatch for payday=${p}, date=${currStr}. Calculated YM=${ym}, Period=${startStr} ~ ${endStr}`);
+          expect(isWithin).toBe(true); // 실패 시 에러 발생시킴
+        }
+        
+        verifiedCount++;
+        
+        // 다음 날로 이동
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+    
+    console.log(`Successfully cross-verified ${verifiedCount} date/payday permutations for mathematical consistency.`);
+  });
 });
+

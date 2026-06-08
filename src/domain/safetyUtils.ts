@@ -25,6 +25,17 @@ function daysBetween(a: Date, b: Date): number {
 // ─── 예산 기간 ────────────────────────────────────────────────────────────────
 
 /**
+ * y년 m월(0-indexed)의 p일에 해당하는 안전한 Date 객체를 반환한다.
+ * 만약 p가 해당 월의 말일보다 크다면, 말일로 제한(clamp)한다.
+ * 예: 2026년 2월(m=1)의 30일 -> 2026-02-28
+ */
+export function getSafeDate(y: number, m: number, p: number): Date {
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  const safeDay = Math.min(p, lastDay);
+  return new Date(y, m, safeDay);
+}
+
+/**
  * 오늘 날짜와 AppConfig 를 바탕으로 현재 예산 기간의 시작/끝을 반환한다.
  * - calendar 모드: 해당 달의 1일 ~ 말일
  * - payday 모드: 지난 달 급여일 ~ 이번 달 급여일 전날 (또는 이번 달 급여일 ~ 다음 달 급여일 전날)
@@ -44,19 +55,24 @@ export function getBudgetPeriod(
   const p = config.payday;
   const y = today.getFullYear();
   const m = today.getMonth(); // 0-indexed
+  const d = today.getDate();
 
-  if (today.getDate() >= p) {
+  // 이번 달의 실제 급여일 구하기 (clamp 적용)
+  const currentPaydayDate = getSafeDate(y, m, p);
+  const currentPayday = currentPaydayDate.getDate();
+
+  if (d >= currentPayday) {
     // 이번 달 급여일 ~ 다음 달 급여일 전날
-    return {
-      start: new Date(y, m, p),
-      end: new Date(y, m + 1, p - 1),
-    };
+    const start = getSafeDate(y, m, p);
+    const end = getSafeDate(y, m + 1, p);
+    end.setDate(end.getDate() - 1);
+    return { start, end };
   } else {
     // 지난 달 급여일 ~ 이번 달 급여일 전날
-    return {
-      start: new Date(y, m - 1, p),
-      end: new Date(y, m, p - 1),
-    };
+    const start = getSafeDate(y, m - 1, p);
+    const end = getSafeDate(y, m, p);
+    end.setDate(end.getDate() - 1);
+    return { start, end };
   }
 }
 
@@ -77,11 +93,47 @@ export function getBudgetPeriodForMonth(
 
   // payday 모드
   const p = config.payday;
-  return {
-    start: new Date(y, m - 2, p),
-    end: new Date(y, m - 1, p - 1),
-  };
+  const start = getSafeDate(y, m - 2, p);
+  const end = getSafeDate(y, m - 1, p);
+  end.setDate(end.getDate() - 1);
+  return { start, end };
 }
+
+/**
+ * 주어진 날짜(기본값: 오늘)와 AppConfig를 바탕으로 해당하는 예산 기준 월(YYYY-MM)을 반환한다.
+ */
+export function getBudgetMonthForDate(
+  date: Date,
+  config: Pick<AppConfig, 'monthMode' | 'payday'>,
+): string {
+  if (config.monthMode === 'calendar') {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  }
+
+  // payday 모드
+  const p = config.payday;
+  const y = date.getFullYear();
+  const m = date.getMonth(); // 0-indexed
+  const d = date.getDate();
+
+  // 이번 달의 실제 급여일 구하기 (clamp 적용)
+  const currentPaydayDate = getSafeDate(y, m, p);
+  const currentPayday = currentPaydayDate.getDate();
+
+  const targetDate = new Date(y, m, 1); // 날짜를 안전하게 1일로 설정하여 overflow 방지!
+  
+  if (d >= currentPayday) {
+    // 다음 달이 기준 월이 됨
+    targetDate.setMonth(targetDate.getMonth() + 1);
+  }
+  
+  const resY = targetDate.getFullYear();
+  const resM = String(targetDate.getMonth() + 1).padStart(2, '0');
+  return `${resY}-${resM}`;
+}
+
 
 /**
  * 두 날짜 사이의 모든 YYYY-MM 월 목록 반환

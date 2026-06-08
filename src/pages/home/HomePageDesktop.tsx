@@ -366,7 +366,7 @@ export function HomePageDesktop() {
 
   const safetyInput    = buildSafetyInput(transactions, config, virtualToday, budgetPlan?.totalBudgetAmount ?? undefined, accounts);
   const summary: SafetySummary = calcSafetySummary(safetyInput);
-  const settlement     = calcSharedSettlementSummary(sharedExpenses, transfers, activeMonth);
+  const settlement     = calcSharedSettlementSummary(sharedExpenses, transfers, activeMonth, toLocalDateStr(periodStart), toLocalDateStr(periodEnd));
   const scoreNum       = Math.round(summary.safetyScore);
   const SAFETY_BAND_IDX: Record<string, number> = {
     critical: 0, risk: 1, warning: 2, safe: 3, very_safe: 4,

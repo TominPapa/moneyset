@@ -10,6 +10,7 @@ import {
   toLocalDateStr,
   getBudgetPeriodForMonth,
   getMonthsInPeriod,
+  getBudgetMonthForDate,
 } from './safetyUtils';
 import { defaultAppConfig, defaultCategories } from './fixtures';
 import type { Transaction, Account, Liability, AppConfig } from './types';
@@ -368,3 +369,36 @@ describe('getMonthsInPeriod', () => {
     expect(result).toEqual(['2026-06']);
   });
 });
+
+describe('getBudgetMonthForDate', () => {
+  it('calendar 모드: 오늘 날짜 기준 월 반환', () => {
+    const date = new Date(2026, 5, 25); // 6월 25일
+    const result = getBudgetMonthForDate(date, { monthMode: 'calendar', payday: 22 });
+    expect(result).toBe('2026-06');
+  });
+
+  it('payday 모드: 급여일(22) 이전(10일) → 이번 달(6월) 반환', () => {
+    const date = new Date(2026, 5, 10); // 6월 10일
+    const result = getBudgetMonthForDate(date, { monthMode: 'payday', payday: 22 });
+    expect(result).toBe('2026-06');
+  });
+
+  it('payday 모드: 급여일(22) 당일(22일) → 다음 달(7월) 반환', () => {
+    const date = new Date(2026, 5, 22); // 6월 22일
+    const result = getBudgetMonthForDate(date, { monthMode: 'payday', payday: 22 });
+    expect(result).toBe('2026-07');
+  });
+
+  it('payday 모드: 급여일(22) 이후(25일) → 다음 달(7월) 반환', () => {
+    const date = new Date(2026, 5, 25); // 6월 25일
+    const result = getBudgetMonthForDate(date, { monthMode: 'payday', payday: 22 });
+    expect(result).toBe('2026-07');
+  });
+
+  it('payday 모드: 12월 급여일(25) 이후(27일) → 내년 1월 반환', () => {
+    const date = new Date(2026, 11, 27); // 12월 27일
+    const result = getBudgetMonthForDate(date, { monthMode: 'payday', payday: 25 });
+    expect(result).toBe('2027-01');
+  });
+});
+

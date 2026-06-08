@@ -18,6 +18,7 @@ import { saveBudgetPlan, saveRecurringItems, syncPendingToDrive, migrateLocalDat
 import { maybeSaveSnapshot } from '../../storage/backupService';
 import type { RecurringItem } from '../../domain/types';
 import { ROUTES } from '../routes';
+import { getBudgetMonthForDate } from '../../domain/safetyUtils';
 
 interface AppStore {
   // 초기화
@@ -116,7 +117,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   isInitialized: false,
 
   config: defaultAppConfig,
-  setConfig: (config) => set({ config }),
+  setConfig: (config) => {
+    const today = new Date();
+    const newYM = getBudgetMonthForDate(today, config);
+    set({ config, activeMonth: newYM });
+  },
   setTheme: (mode) =>
     set((s) => ({ config: { ...s.config, themeMode: mode } })),
 
@@ -328,9 +333,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // Drive app_state 갱신 (크로스 디바이스 동기화용)
     driveAdapter.writeAppState(newState).catch(() => {});
 
+    const activeMonth = getBudgetMonthForDate(new Date(), config);
+
     set({
       isAuthenticated: true,
       config,
+      activeMonth,
       onboardingCompleted,
       accounts,
       liabilities,
