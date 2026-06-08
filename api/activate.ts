@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 
 declare const process: {
   env: Record<string, string | undefined>;
