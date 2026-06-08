@@ -49,6 +49,7 @@ interface AppStore {
 
   // 사용자 티어
   userTier: UserTier;
+  activatedCode: string | null;
   /** 후원 코드 검증 후 티어 업그레이드. 성공 시 새 티어 반환, 실패 시 null */
   unlockWithCode: (code: string) => Promise<UserTier | null>;
 
@@ -125,6 +126,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   userProfile: null,
   userTier: 'free',
+  activatedCode: null,
   unlockWithCode: async (code: string) => {
     const normalised = code.trim().toUpperCase();
     const email = get().userProfile?.email;
@@ -148,13 +150,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
         const cached = await localCache.getAppState();
         if (cached) {
-          const updated: AppState = { ...cached, userTier: newTier };
+          const updated: AppState = { ...cached, userTier: newTier, activatedCode: normalised };
           await Promise.all([
             localCache.setAppState(updated),
             driveAdapter.writeAppState(updated),
           ]);
         }
-        set({ userTier: newTier });
+        set({ userTier: newTier, activatedCode: normalised });
         return newTier;
       } else {
         const data = await res.json().catch(() => ({ error: '알 수 없는 서버 오류' }));
@@ -176,13 +178,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
       const cached = await localCache.getAppState();
       if (cached) {
-        const updated: AppState = { ...cached, userTier: offlineTier };
+        const updated: AppState = { ...cached, userTier: offlineTier, activatedCode: normalised };
         await Promise.all([
           localCache.setAppState(updated),
           driveAdapter.writeAppState(updated),
         ]);
       }
-      set({ userTier: offlineTier });
+      set({ userTier: offlineTier, activatedCode: normalised });
       return offlineTier;
     }
   },
@@ -312,6 +314,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       lastSyncAt: new Date().toISOString(),
       installId: driveAppState?.installId ?? crypto.randomUUID(),
       userTier: driveAppState?.userTier ?? 'free',
+      activatedCode: driveAppState?.activatedCode,
     };
 
     // 인메모리 캐시에 주요 데이터 선주입
@@ -333,6 +336,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       liabilities,
       loginStep: null,
       userTier: driveAppState?.userTier ?? 'free',
+      activatedCode: driveAppState?.activatedCode ?? null,
     });
 
     // 백그라운드 일별 스냅샷 저장 및 펜딩 복구/레거시 마이그레이션 실행
@@ -364,6 +368,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       liabilities: [],
       userProfile: null,
       userTier: 'free',
+      activatedCode: null,
     });
   },
 }));

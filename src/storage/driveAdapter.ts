@@ -57,6 +57,7 @@ export interface AppState {
   lastSyncAt: string;
   installId: string;
   userTier?: UserTier;   // 미설정 시 'free'로 취급
+  activatedCode?: string; // 등록된 인증 코드 정보
 }
 
 // ─── 백업 메타 ────────────────────────────────────────────────────────────────

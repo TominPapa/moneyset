@@ -1006,6 +1006,7 @@ export function SettingsPageDesktop() {
   const liabilities    = useAppStore((s) => s.liabilities);
   const setLiabilities = useAppStore((s) => s.setLiabilities);
   const userTier       = useAppStore((s) => s.userTier);
+  const activatedCode  = useAppStore((s) => s.activatedCode);
   const unlockWithCode = useAppStore((s) => s.unlockWithCode);
 
   const [activeTab, setActiveTab]           = useState<Tab>('general');
@@ -1127,41 +1128,52 @@ export function SettingsPageDesktop() {
                 {tierLabel(userTier)}
               </span>
             </div>
-            {userTier === 'free' && (
-              <p className={styles.sectionDesc}>
-                후원 코드를 입력해 기능을 활성화하세요. 텀블벅 메시지함에서 발급된 코드를 확인할 수 있습니다.
-              </p>
-            )}
-            <div className={styles.thresholdRow} style={{ flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
-              <input
-                className={styles.thresholdInput}
-                style={{ width: 'auto', flex: 1, minWidth: 140, textAlign: 'left', letterSpacing: '0.06em', fontFamily: 'monospace', fontSize: 'var(--size-xs)' }}
-                type="text"
-                value={codeInput}
-                onChange={(e) => { setCodeInput(e.target.value.toUpperCase()); setCodeStatus('idle'); }}
-                onKeyDown={(e) => e.key === 'Enter' && handleCodeActivate()}
-                placeholder="후원 코드 입력 (예: BASIC-XXXX)"
-                maxLength={20}
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <button
-                className={styles.saveBtn}
-                onClick={handleCodeActivate}
-                disabled={codeStatus === 'loading' || !codeInput.trim()}
-                type="button"
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                {codeStatus === 'loading' ? '확인 중…' : '활성화'}
-              </button>
-            </div>
-            {codeStatus === 'success' && (
-              <p className={styles.saveMsg}>✓ 플랜이 활성화되었습니다!</p>
-            )}
-            {codeStatus === 'error' && (
-              <p className={styles.saveMsg} style={{ color: 'var(--error)' }}>
-                유효하지 않은 코드입니다. 다시 확인해주세요.
-              </p>
+            {userTier === 'free' ? (
+              <>
+                <p className={styles.sectionDesc}>
+                  후원 코드를 입력해 기능을 활성화하세요. 텀블벅 메시지함에서 발급된 코드를 확인할 수 있습니다.
+                </p>
+                <div className={styles.thresholdRow} style={{ flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
+                  <input
+                    className={styles.thresholdInput}
+                    style={{ width: 'auto', flex: 1, minWidth: 140, textAlign: 'left', letterSpacing: '0.06em', fontFamily: 'monospace', fontSize: 'var(--size-xs)' }}
+                    type="text"
+                    value={codeInput}
+                    onChange={(e) => { setCodeInput(e.target.value.toUpperCase()); setCodeStatus('idle'); }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCodeActivate()}
+                    placeholder="후원 코드 입력 (예: BASIC-XXXX)"
+                    maxLength={20}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    className={styles.saveBtn}
+                    onClick={handleCodeActivate}
+                    disabled={codeStatus === 'loading' || !codeInput.trim()}
+                    type="button"
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    {codeStatus === 'loading' ? '확인 중…' : '활성화'}
+                  </button>
+                </div>
+                {codeStatus === 'success' && (
+                  <p className={styles.saveMsg}>✓ 플랜이 활성화되었습니다!</p>
+                )}
+                {codeStatus === 'error' && (
+                  <p className={styles.saveMsg} style={{ color: 'var(--error)' }}>
+                    유효하지 않은 코드입니다. 다시 확인해주세요.
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className={styles.syncCard} style={{ marginTop: 'var(--space-xs)', border: '1px solid var(--border-color)' }}>
+                <div className={styles.syncRow}>
+                  <span className={styles.syncLabel}>인증된 코드</span>
+                  <span className={styles.syncValue} style={{ fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.05em' }}>
+                    {activatedCode || '정식 활성화 완료 (이전 버전)'}
+                  </span>
+                </div>
+              </div>
             )}
             <button
               className={styles.addBtn}

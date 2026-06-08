@@ -975,6 +975,7 @@ export function SettingsPageMobile() {
   const liabilities    = useAppStore((s) => s.liabilities);
   const setLiabilities = useAppStore((s) => s.setLiabilities);
   const userTier       = useAppStore((s) => s.userTier);
+  const activatedCode  = useAppStore((s) => s.activatedCode);
   const unlockWithCode = useAppStore((s) => s.unlockWithCode);
 
   const [activeTab, setActiveTab]           = useState<Tab>('general');
@@ -1104,32 +1105,43 @@ export function SettingsPageMobile() {
                   {tierLabel(userTier)}
                 </span>
               </div>
-              {userTier === 'free' && (
-                <p className={styles.sectionDesc}>
-                  후원 코드를 입력해 기능을 활성화하세요.
-                </p>
+              {userTier === 'free' ? (
+                <>
+                  <p className={styles.sectionDesc}>
+                    후원 코드를 입력해 기능을 활성화하세요.
+                  </p>
+                  <div className={styles.thresholdRow}>
+                    <input
+                      className={styles.thresholdInput}
+                      type="text"
+                      value={codeInput}
+                      onChange={(e) => { setCodeInput(e.target.value.toUpperCase()); setCodeStatus('idle'); }}
+                      placeholder="후원 코드 (예: BASIC-XXXX)"
+                      maxLength={20}
+                      autoComplete="off"
+                    />
+                    <button
+                      className={styles.saveBtn}
+                      onClick={handleCodeActivate}
+                      disabled={codeStatus === 'loading' || !codeInput.trim()}
+                      type="button"
+                    >
+                      활성화
+                    </button>
+                  </div>
+                  {codeStatus === 'success' && <p className={styles.saveMsg}>✓ 활성화 완료!</p>}
+                  {codeStatus === 'error' && <p className={styles.saveMsg} style={{ color: 'var(--error)' }}>잘못된 코드입니다.</p>}
+                </>
+              ) : (
+                <div className={styles.syncCard} style={{ marginTop: 8 }}>
+                  <div className={styles.syncRow}>
+                    <span>인증된 코드</span>
+                    <span className={styles.syncValue} style={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                      {activatedCode || '정식 활성화 완료'}
+                    </span>
+                  </div>
+                </div>
               )}
-              <div className={styles.thresholdRow}>
-                <input
-                  className={styles.thresholdInput}
-                  type="text"
-                  value={codeInput}
-                  onChange={(e) => { setCodeInput(e.target.value.toUpperCase()); setCodeStatus('idle'); }}
-                  placeholder="후원 코드 (예: BASIC-XXXX)"
-                  maxLength={20}
-                  autoComplete="off"
-                />
-                <button
-                  className={styles.saveBtn}
-                  onClick={handleCodeActivate}
-                  disabled={codeStatus === 'loading' || !codeInput.trim()}
-                  type="button"
-                >
-                  활성화
-                </button>
-              </div>
-              {codeStatus === 'success' && <p className={styles.saveMsg}>✓ 활성화 완료!</p>}
-              {codeStatus === 'error' && <p className={styles.saveMsg} style={{ color: 'var(--error)' }}>잘못된 코드입니다.</p>}
             </div>
 
             {/* 테마 */}
