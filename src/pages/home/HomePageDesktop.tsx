@@ -380,7 +380,16 @@ export function HomePageDesktop() {
   const todayDay       = today.getDate();
   const [yl, ml]       = activeMonth.split('-').map(Number);
   const daysInMonth    = new Date(yl, ml, 0).getDate();
-  const isCurrentMonth = today.getFullYear() === yl && today.getMonth() + 1 === ml;
+  // payday 모드 호환: 달력 월이 아닌 실제 예산 기간 내 여부로 판단
+  const isCurrentMonth = realToday >= periodStart && realToday <= periodEnd;
+  // 기간 잔여일 / 경과일 — payday 모드에서 달력 기준 오류 수정
+  const daysLeftInPeriod = isCurrentMonth
+    ? Math.max(0, Math.ceil((periodEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const elapsedDaysInPeriod = isCurrentMonth
+    ? Math.max(1, Math.ceil((today.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+    : totalDays;
+  const periodEndLabel = config.monthMode === 'payday' ? '기간 종료까지' : '월말까지';
 
   const totalIncome    = transactions.filter(t => t.entryKind === 'income').reduce((s,t) => s+t.amount, 0);
   const totalExpense   = transactions.filter(t => t.entryKind === 'expense').reduce((s,t) => s+t.amount, 0);
@@ -492,11 +501,12 @@ export function HomePageDesktop() {
   const currentSavings  = Math.max(0, effectiveIncome - totalExpense);
   const achievePct       = savingsGoal > 0 ? Math.min(100, Math.round((currentSavings / savingsGoal) * 100)) : 0;
   const remaining        = Math.max(0, savingsGoal - currentSavings);
-  const elapsedDaysForSaving = isCurrentMonth ? todayDay : daysInMonth;
+  // payday 모드: 달력 todayDay(1~31) 대신 예산 기간 내 경과일/잔여일 사용
+  const elapsedDaysForSaving = elapsedDaysInPeriod;
   const dailySavingRate  = elapsedDaysForSaving > 0 ? currentSavings / elapsedDaysForSaving : 0;
-  const projected        = Math.round(dailySavingRate * daysInMonth);
+  const projected        = Math.round(dailySavingRate * totalDays);
   const isOnTrack        = savingsGoal <= 0 || projected >= savingsGoal;
-  const daysLeft         = isCurrentMonth ? daysInMonth - todayDay : 0;
+  const daysLeft         = daysLeftInPeriod;
   const neededPerDay     = daysLeft > 0 && remaining > 0 ? Math.ceil(remaining / daysLeft) : 0;
 
   return (
@@ -586,7 +596,7 @@ export function HomePageDesktop() {
                   </div>
                   <div className={styles.heroRemainingHint}>
                     {isCurrentMonth
-                      ? <>월말까지 <span className={styles.heroMint}>{daysInMonth - todayDay}일</span> 남음 · 일 평균 예산 <span className={styles.mono}>{fmtShort(dailyLimit)}원</span></>
+                      ? <>{periodEndLabel} <span className={styles.heroMint}>{daysLeftInPeriod}일</span> 남음 · 일 평균 예산 <span className={styles.mono}>{fmtShort(dailyLimit)}원</span></>
                       : <span className={styles.heroMint}>{activeMonth} 결산</span>}
                   </div>
                 </div>
@@ -848,7 +858,7 @@ export function HomePageDesktop() {
               <div className={`${styles.savingsBadge} ${achievePct >= 100 ? styles.savingsBadgeDone : isOnTrack ? styles.savingsBadgeGood : styles.savingsBadgeWarn}`}>
                 {achievePct >= 100 ? '🎉 목표 달성!' : isOnTrack ? `📈 달성 가능` : `⚡ 페이스 부족`}
               </div>
-              {daysLeft > 0 && <div style={{ fontSize: 11, color: 'var(--text-2)' }}>월말까지 {daysLeft}일 남음</div>}
+              {daysLeft > 0 && <div style={{ fontSize: 11, color: 'var(--text-2)' }}>{periodEndLabel} {daysLeft}일 남음</div>}
             </div>
           </div>
 
@@ -910,7 +920,7 @@ export function HomePageDesktop() {
             ) : achievePct >= 100 ? (
               <><IcCheck size={13}/> 이번 달 저축 목표를 달성했어요! 초과 저축 {fmt(currentSavings - savingsGoal)}</>
             ) : isOnTrack ? (
-              <><IcCheck size={13}/> 현재 페이스면 월말까지 <strong style={{ color: 'var(--mint-300)' }}>{fmt(projected)}</strong> 저축 예상 — 목표 달성 가능해요!</>
+              <><IcCheck size={13}/> 현재 페이스면 {periodEndLabel} <strong style={{ color: 'var(--mint-300)' }}>{fmt(projected)}</strong> 저축 예상 — 목표 달성 가능해요!</>
             ) : (
               <><IcFlame size={13}/> 목표 달성을 위해 하루 <strong style={{ color: 'var(--gold-300)' }}>{fmtShort(neededPerDay)}원</strong>씩 추가 저축이 필요해요.</>
             )}

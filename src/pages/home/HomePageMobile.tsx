@@ -174,7 +174,16 @@ export function HomePageMobile() {
   const todayDay       = today.getDate();
   const [yl, ml]       = activeMonth.split('-').map(Number);
   const daysInMonth    = new Date(yl, ml, 0).getDate();
-  const isCurrentMonth = today.getFullYear() === yl && today.getMonth() + 1 === ml;
+  // payday 모드 호환: 달력 월이 아닌 실제 예산 기간 내 여부로 판단
+  const isCurrentMonth = realToday >= periodStart && realToday <= periodEnd;
+  // 기간 잔여일 / 경과일 — payday 모드에서 달력 기준 오류 수정
+  const daysLeftInPeriod = isCurrentMonth
+    ? Math.max(0, Math.ceil((periodEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const elapsedDaysInPeriod = isCurrentMonth
+    ? Math.max(1, Math.ceil((today.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+    : totalDays;
+  const periodEndLabel = config.monthMode === 'payday' ? '기간 종료까지' : '월말까지';
 
   const totalIncome    = transactions.filter(t => t.entryKind === 'income').reduce((s,t) => s+t.amount, 0);
   const totalExpense   = transactions.filter(t => t.entryKind === 'expense').reduce((s,t) => s+t.amount, 0);
@@ -230,9 +239,10 @@ export function HomePageMobile() {
   const effectiveIncome = totalIncome > 0 ? totalIncome : config.expectedNetIncomeDefault;
   const currentSavings  = Math.max(0, effectiveIncome - totalExpense);
   const achievePct       = savingsGoal > 0 ? Math.min(100, Math.round((currentSavings / savingsGoal) * 100)) : 0;
-  const elapsedDaysForSaving = isCurrentMonth ? todayDay : daysInMonth;
+  // payday 모드: 달력 todayDay(1~31) 대신 예산 기간 내 경과일/잔여일 사용
+  const elapsedDaysForSaving = elapsedDaysInPeriod;
   const dailySavingRate  = elapsedDaysForSaving > 0 ? currentSavings / elapsedDaysForSaving : 0;
-  const projected        = Math.round(dailySavingRate * daysInMonth);
+  const projected        = Math.round(dailySavingRate * totalDays);
   const isOnTrack        = savingsGoal <= 0 || projected >= savingsGoal;
 
   // Info message based on safety
@@ -324,7 +334,7 @@ export function HomePageMobile() {
         <div className={styles.miniStats}>
           <div className={styles.miniStat}>
             <span className={styles.miniLabel}>남은 일수</span>
-            <span className={styles.miniVal}>{isCurrentMonth ? `${daysInMonth - todayDay}일` : '결산 완료'}</span>
+            <span className={styles.miniVal}>{isCurrentMonth ? `${daysLeftInPeriod}일` : '결산 완료'}</span>
           </div>
           <div className={styles.miniDivider} />
           <div className={styles.miniStat}>
