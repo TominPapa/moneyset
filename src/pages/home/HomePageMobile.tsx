@@ -171,9 +171,9 @@ export function HomePageMobile() {
   const [year, month]  = activeMonth.split('-');
   const today          = new Date();
   const todayStr       = toLocalDateStr(today);
-  const todayDay       = today.getDate();
   const [yl, ml]       = activeMonth.split('-').map(Number);
-  const daysInMonth    = new Date(yl, ml, 0).getDate();
+  // totalDays를 먼저 선언 (아래 기간 변수들이 참조)
+  const totalDays      = Math.round((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   // payday 모드 호환: 달력 월이 아닌 실제 예산 기간 내 여부로 판단
   const isCurrentMonth = realToday >= periodStart && realToday <= periodEnd;
   // 기간 잔여일 / 경과일 — payday 모드에서 달력 기준 오류 수정
@@ -183,7 +183,6 @@ export function HomePageMobile() {
   const elapsedDaysInPeriod = isCurrentMonth
     ? Math.max(1, Math.ceil((today.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
     : totalDays;
-  const periodEndLabel = config.monthMode === 'payday' ? '기간 종료까지' : '월말까지';
 
   const totalIncome    = transactions.filter(t => t.entryKind === 'income').reduce((s,t) => s+t.amount, 0);
   const totalExpense   = transactions.filter(t => t.entryKind === 'expense').reduce((s,t) => s+t.amount, 0);
@@ -194,8 +193,6 @@ export function HomePageMobile() {
 
   const dailyLimit     = Math.round(summary.dailyRecommendedLimit);
   const budgetBase     = summary.monthlyBudgetBase;
-
-  const totalDays = Math.round((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   const weekRanges = [
     { label: '1주차', startOffset: 0, endOffset: 6 },
     { label: '2주차', startOffset: 7, endOffset: 13 },
