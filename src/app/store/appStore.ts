@@ -269,8 +269,25 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ loginStep: '장부를 준비하는 중…' });
     let rootFolderId: string;
     if (driveAppState?.currentLedgerRootFolderId) {
-      const manifest = await driveAdapter.openLedger(driveAppState.currentLedgerRootFolderId);
-      rootFolderId = manifest.rootFolderId;
+      try {
+        const manifest = await driveAdapter.openLedger(driveAppState.currentLedgerRootFolderId);
+        rootFolderId = manifest.rootFolderId;
+      } catch (folderErr: unknown) {
+        const msg = folderErr instanceof Error ? folderErr.message : String(folderErr);
+        // 401: 인증 오류 → 재전파하여 로그인 화면으로 이동
+        if (msg.includes('401')) throw folderErr;
+        // 404·trashed·기타: 기존 장부를 검색하거나 새로 생성
+        console.warn('[appStore] Saved ledger folder inaccessible, searching for existing…', msg);
+        set({ loginStep: '장부를 다시 찾는 중…' });
+        const existing = await driveAdapter.findExistingLedger();
+        if (existing) {
+          const manifest = await driveAdapter.openLedger(existing);
+          rootFolderId = manifest.rootFolderId;
+        } else {
+          set({ loginStep: '처음 오셨군요! 장부를 만드는 중…' });
+          rootFolderId = await driveAdapter.createLedger('RESET Budget');
+        }
+      }
     } else {
       const existing = await driveAdapter.findExistingLedger();
       if (existing) {
@@ -307,8 +324,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const driveTransactions = guardArray<Transaction>(txEnv.value?.data);
       await localCache.setTransactions(ym, driveTransactions);
     }
-    if (planEnv.status === 'fulfilled' && planEnv.value?.data) {
-      await saveBudgetPlan(planEnv.value.data);
+    if (planEnv.status === 'fulfilled') {
+      if (planEnv.value?.data) {
+        await saveBudgetPlan(planEnv.value.data);
+      } else {
+        // Drive에 예산 계획이 없음 → 인메모리에 null로 표시 (재조회 방지)
+        await localCache.deleteBudgetPlan(ym);
+      }
     }
     if (recurringEnv.status === 'fulfilled') {
       const driveRecurring = guardArray<RecurringItem>(recurringEnv.value?.data);

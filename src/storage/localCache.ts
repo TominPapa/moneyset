@@ -1,6 +1,6 @@
 // Local Cache Interface — RESET Budget
-// 스펙 Section 12 기준 (IndexedDB 기반)
-// 이 파일은 인터페이스 정의만 포함한다. 실제 구현은 Phase 2에서 작성한다.
+// 스토리지 아키텍처: Drive (단일 진실 공급원) → 인메모리 Map (세션 캐시)
+// IndexedDB 제거됨. 실제 구현은 localCacheImpl.ts 참조.
 
 import type {
   AppConfig,
@@ -15,21 +15,7 @@ import type {
 } from '../domain/types';
 import type { AppState } from './driveAdapter';
 
-// ─── IndexedDB Store 이름 ─────────────────────────────────────────────────────
-
-export const STORE_NAMES = {
-  config: 'config',
-  accounts: 'accounts',
-  liabilities: 'liabilities',
-  transactions: 'transactions',       // key: `${ym}/${id}`
-  sharedExpenses: 'shared_expenses',  // key: `${ym}/${id}`
-  settlementTransfers: 'settlement_transfers',
-  resetSessions: 'reset_sessions',
-  appState: 'app_state',
-  syncQueue: 'sync_queue',            // 저장 실패 항목 재시도 큐
-} as const;
-
-// ─── 동기화 큐 항목 ───────────────────────────────────────────────────────────
+// ─── 동기화 큐 항목 (인터페이스 호환용 — 실질적으로 no-op) ─────────────────────
 
 export type SyncQueueItemType =
   | 'config'

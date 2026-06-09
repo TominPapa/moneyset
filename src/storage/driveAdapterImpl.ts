@@ -39,6 +39,8 @@ export class DriveAdapterImpl implements DriveAdapter {
   private fileIdCache = new Map<string, string>();
   /** 폴더 ID 캐시: `${parentId}/${folderName}` → folderId */
   private folderIdCache = new Map<string, string>();
+  /** 동시 Silent Re-auth 요청 중복 방지 */
+  private _silentReauthPromise: Promise<string> | null = null;
 
   // ─── 인증 ──────────────────────────────────────────────────────────────────
 
@@ -62,17 +64,97 @@ export class DriveAdapterImpl implements DriveAdapter {
     this.folderIdCache.clear();
   }
 
+  // ─── Silent Re-auth (OAuth 토큰 만료 시 사용자 개입 없이 갱신) ─────────────
+
+  /**
+   * Google OAuth prompt=none hidden iframe 방식으로 새 access_token 획득.
+   * 성공 시 새 토큰 반환, 실패(미로그인·동의 필요) 시 reject.
+   */
+  async silentReauth(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const TIMEOUT_MS = 30_000;
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
+      if (!clientId) { reject(new Error('VITE_GOOGLE_CLIENT_ID 미설정')); return; }
+
+      const scope = [
+        'https://www.googleapis.com/auth/drive.file',
+        'https://www.googleapis.com/auth/drive.appdata',
+      ].join(' ');
+
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: window.location.origin,
+        response_type: 'token',
+        scope,
+        include_granted_scopes: 'true',
+        prompt: 'none',
+      });
+
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;border:none;';
+      iframe.src = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error('Silent re-auth timeout'));
+      }, TIMEOUT_MS);
+
+      const handleMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type === 'oauth_silent_token' && event.data?.token) {
+          cleanup();
+          resolve(event.data.token as string);
+        } else if (event.data?.type === 'oauth_silent_error') {
+          cleanup();
+          reject(new Error(`Silent re-auth error: ${event.data.error}`));
+        }
+      };
+
+      const cleanup = () => {
+        clearTimeout(timer);
+        window.removeEventListener('message', handleMessage);
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      };
+
+      window.addEventListener('message', handleMessage);
+      document.body.appendChild(iframe);
+    });
+  }
+
   // ─── 내부 fetch 래퍼 ──────────────────────────────────────────────────────
 
   private async fetch(url: string, options: RequestInit = {}): Promise<Response> {
     if (!this.accessToken) throw new Error('Drive 미인증 상태입니다.');
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        ...(options.headers ?? {}),
-      },
-    });
+
+    const execRequest = (token: string) =>
+      window.fetch(url, {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(options.headers ?? {}),
+        },
+      });
+
+    let res = await execRequest(this.accessToken);
+
+    // 401: OAuth 토큰 만료 → Silent Re-auth 후 1회 재시도
+    if (res.status === 401) {
+      try {
+        // 동시에 여러 요청이 401을 받아도 re-auth는 한 번만 실행
+        if (!this._silentReauthPromise) {
+          this._silentReauthPromise = this.silentReauth().finally(() => {
+            this._silentReauthPromise = null;
+          });
+        }
+        const newToken = await this._silentReauthPromise;
+        this.accessToken = newToken;
+        sessionStorage.setItem('__oauth_token__', newToken);
+        res = await execRequest(newToken);
+      } catch {
+        // Silent Re-auth 실패 → 원래 401 에러 그대로 전파 (로그인 화면 이동)
+      }
+    }
+
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Drive API 오류 ${res.status}: ${text}`);
@@ -207,8 +289,13 @@ export class DriveAdapterImpl implements DriveAdapter {
   }
 
   async openLedger(rootFolderId: string): Promise<Manifest> {
+    // Drive에서 폴더 실제 존재 여부 확인 (사용자가 삭제·휴지통 이동한 경우 감지)
+    const res = await this.fetch(`${DRIVE_API}/files/${rootFolderId}?fields=id,trashed`);
+    const folderInfo = await res.json() as { id: string; trashed?: boolean };
+    if (folderInfo.trashed) {
+      throw new Error(`Drive API 오류 404: ledger folder is trashed (${rootFolderId})`);
+    }
     this.rootFolderId = rootFolderId;
-    // 로그인 시 manifest 내용이 실제로 필요하지 않으므로 stub 반환 (API 호출 절약)
     return { rootFolderId } as Manifest;
   }
 

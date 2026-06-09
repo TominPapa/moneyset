@@ -76,59 +76,18 @@ export function tierColor(tier: UserTier): string {
  * 환경변수 VITE_ACCESS_CODES 를 파싱해 코드 → 티어 매핑 반환
  * 형식: JSON {"CODE-XXXX":"basic","CODE-YYYY":"allinone","CODE-ZZZZ":"couple"}
  */
-interface AccessCodeItem {
-  index: number;
-  code: string;
-  tier: UserTier;
-}
-
-function loadCodeMap(): Record<string, UserTier> {
-  try {
-    let raw = import.meta.env.VITE_ACCESS_CODES;
-    if (!raw) return {};
-    
-    raw = raw.trim();
-    if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
-      raw = raw.slice(1, -1).trim();
-    }
-
-    const parsed = JSON.parse(raw);
-    const map: Record<string, UserTier> = {};
-
-    if (Array.isArray(parsed)) {
-      for (const item of parsed as AccessCodeItem[]) {
-        if (item && item.code && item.tier) {
-          map[item.code.trim().toUpperCase()] = item.tier;
-        }
-      }
-    } else if (parsed && typeof parsed === 'object') {
-      for (const [code, tier] of Object.entries(parsed)) {
-        map[code.trim().toUpperCase()] = tier as UserTier;
-      }
-    }
-    return map;
-  } catch (err) {
-    return {};
-  }
-}
-
 /**
  * 후원 코드가 유효한 경우 해당 티어를 반환, 아니면 null
+ * 프론트엔드 오프라인 폴백 검증용: 오직 대표 공용 코드(VITE_SUPPORTER_CODE)만 검증하며,
+ * 개별 후원 코드는 JS 번들 보안을 위해 백엔드 API에서만 처리합니다.
  */
 export function parseTierFromCode(code: string): UserTier | null {
   const normalised = code.trim().toUpperCase();
 
-  // 1. 단일 서포터 코드 검증 (VITE_SUPPORTER_CODE)
+  // 1. 대표 서포터 코드 검증 (VITE_SUPPORTER_CODE)
   const envSupporterCode = (import.meta.env.VITE_SUPPORTER_CODE as string || '').trim().toUpperCase();
   if (envSupporterCode && normalised === envSupporterCode) {
     return 'allinone';
-  }
-
-  // 2. 다중 액세스 코드 맵 검증 (VITE_ACCESS_CODES)
-  const map = loadCodeMap();
-  const tier = map[normalised];
-  if (tier === 'basic' || tier === 'allinone' || tier === 'couple' || tier === 'supporter') {
-    return tier === 'supporter' ? 'allinone' : tier;
   }
 
   return null;
