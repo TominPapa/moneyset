@@ -529,13 +529,12 @@ export function HomePageDesktop() {
   }
   const wf = wfLabel();
 
-  const effectiveIncomeForNet = totalIncome > 0 ? totalIncome : config.expectedNetIncomeDefault;
-  const netBalance = effectiveIncomeForNet - totalExpense;
+  // 수입은 실제 기록한 거래만 사용 (월 수입 설정 필드 제거로 폴백 제거)
+  const netBalance = totalIncome - totalExpense;
   const todayLimitPct = dailyLimit > 0 ? Math.min(100, Math.round((todayExpense / dailyLimit) * 100)) : 0;
 
   const savingsGoal = config.savingsTargetDefault ?? 0;
-  const effectiveIncome = totalIncome > 0 ? totalIncome : config.expectedNetIncomeDefault;
-  const currentSavings  = Math.max(0, effectiveIncome - totalExpense);
+  const currentSavings  = Math.max(0, totalIncome - totalExpense);
   const achievePct       = savingsGoal > 0 ? Math.min(100, Math.round((currentSavings / savingsGoal) * 100)) : 0;
   const remaining        = Math.max(0, savingsGoal - currentSavings);
   // payday 모드: 달력 todayDay(1~31) 대신 예산 기간 내 경과일/잔여일 사용
