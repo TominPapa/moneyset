@@ -171,7 +171,6 @@ export function HomePageMobile() {
   const [year, month]  = activeMonth.split('-');
   const today          = new Date();
   const todayStr       = toLocalDateStr(today);
-  const [yl, ml]       = activeMonth.split('-').map(Number);
   // totalDays를 먼저 선언 (아래 기간 변수들이 참조)
   const totalDays      = Math.round((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   // payday 모드 호환: 달력 월이 아닌 실제 예산 기간 내 여부로 판단
