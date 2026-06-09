@@ -30,8 +30,9 @@ function daysBetween(a: Date, b: Date): number {
  * 예: 2026년 2월(m=1)의 30일 -> 2026-02-28
  */
 export function getSafeDate(y: number, m: number, p: number): Date {
+  const safeP = (typeof p === 'number' && !Number.isNaN(p)) ? p : 25;
   const lastDay = new Date(y, m + 1, 0).getDate();
-  const safeDay = Math.min(p, lastDay);
+  const safeDay = Math.min(safeP, lastDay);
   return new Date(y, m, safeDay);
 }
 
@@ -44,7 +45,10 @@ export function getBudgetPeriod(
   today: Date,
   config: Pick<AppConfig, 'monthMode' | 'payday'>,
 ): { start: Date; end: Date } {
-  if (config.monthMode === 'calendar') {
+  const mode = config?.monthMode ?? 'calendar';
+  const payday = config?.payday ?? 25;
+
+  if (mode === 'calendar') {
     return {
       start: new Date(today.getFullYear(), today.getMonth(), 1),
       end: new Date(today.getFullYear(), today.getMonth() + 1, 0),
@@ -52,7 +56,7 @@ export function getBudgetPeriod(
   }
 
   // payday 모드
-  const p = config.payday;
+  const p = payday;
   const y = today.getFullYear();
   const m = today.getMonth(); // 0-indexed
   const d = today.getDate();
@@ -84,7 +88,10 @@ export function getBudgetPeriodForMonth(
   config: Pick<AppConfig, 'monthMode' | 'payday'>,
 ): { start: Date; end: Date } {
   const [y, m] = ym.split('-').map(Number);
-  if (config.monthMode === 'calendar') {
+  const mode = config?.monthMode ?? 'calendar';
+  const payday = config?.payday ?? 25;
+
+  if (mode === 'calendar') {
     return {
       start: new Date(y, m - 1, 1),
       end: new Date(y, m, 0),
@@ -92,7 +99,7 @@ export function getBudgetPeriodForMonth(
   }
 
   // payday 모드
-  const p = config.payday;
+  const p = payday;
   const start = getSafeDate(y, m - 2, p);
   const end = getSafeDate(y, m - 1, p);
   end.setDate(end.getDate() - 1);
@@ -106,14 +113,17 @@ export function getBudgetMonthForDate(
   date: Date,
   config: Pick<AppConfig, 'monthMode' | 'payday'>,
 ): string {
-  if (config.monthMode === 'calendar') {
+  const mode = config?.monthMode ?? 'calendar';
+  const payday = config?.payday ?? 25;
+
+  if (mode === 'calendar') {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     return `${y}-${m}`;
   }
 
   // payday 모드
-  const p = config.payday;
+  const p = payday;
   const y = date.getFullYear();
   const m = date.getMonth(); // 0-indexed
   const d = date.getDate();

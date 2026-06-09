@@ -82,9 +82,18 @@ function currentYM(): string {
 function guardConfig(raw: unknown): AppConfig {
   if (raw && typeof raw === 'object') {
     const cfg = raw as Partial<AppConfig>;
+    const monthMode = (cfg.monthMode === 'calendar' || cfg.monthMode === 'payday')
+      ? cfg.monthMode
+      : defaultAppConfig.monthMode;
+    const payday = (typeof cfg.payday === 'number' && cfg.payday >= 1 && cfg.payday <= 31)
+      ? cfg.payday
+      : defaultAppConfig.payday;
+
     return {
       ...defaultAppConfig,
       ...cfg,
+      monthMode,
+      payday,
       categories:
         Array.isArray(cfg.categories) && cfg.categories.length > 0
           ? cfg.categories
