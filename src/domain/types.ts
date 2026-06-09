@@ -278,7 +278,7 @@ export interface BudgetPlan {
 
 // ─── 정기지출/구독/할부 (RecurringItem) — V1.5 신규 ──────────────────────────
 
-export type RecurringKind  = 'regular' | 'subscription' | 'installment';
+export type RecurringKind  = 'regular' | 'subscription' | 'installment' | 'transfer';
 export type RecurringCycle = 'monthly' | 'weekly' | 'yearly';
 
 export interface RecurringItem {
@@ -286,10 +286,10 @@ export interface RecurringItem {
   kind: RecurringKind;
   title: string;
   amount: number;
-  categoryId: string;
+  categoryId: string;      // transfer 종류에서는 빈 문자열 허용
   nextDueDate: ISODate;
   enabled: boolean;
-  accountId?: string;      // 출금 계좌 ID
+  accountId?: string;      // 출금 계좌 ID (regular/subscription/installment)
   // regular 전용
   cycle?: RecurringCycle;
   dayOfMonth?: number;
@@ -301,6 +301,10 @@ export interface RecurringItem {
   totalInstallments?: number;
   remainingInstallments?: number;
   startedAt?: ISODate;
+  // transfer 전용
+  fromAccountId?: string;  // 출금 계좌 (이체 출발)
+  toAccountId?: string;    // 입금 계좌 (이체 도착)
+  transferCycle?: RecurringCycle; // 이체 주기 (기본: monthly)
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 export function useIsMobilePhone(): boolean {
   const [isMobile, setIsMobile] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      return window.innerWidth < 600;
+      return window.innerWidth < 768;
     }
     return false;
   });
@@ -16,7 +16,7 @@ export function useIsMobilePhone(): boolean {
     if (typeof window === 'undefined') return;
 
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 600);
+      setIsMobile(window.innerWidth < 768);
     };
 
     window.addEventListener('resize', handleResize);

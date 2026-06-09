@@ -1,10 +1,9 @@
-// OnboardingStep1Page — 기본 설정 (수입 / 월 기준 / 주 시작 / 테마)
+// OnboardingStep1Page — 기본 설정 (월 기준 / 주 시작 / 테마)
 
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../app/routes';
 import { OnboardingLayout } from './OnboardingLayout';
 import { useOnboarding } from './OnboardingContext';
-import { AmountInput } from '../../components/ui/AmountInput';
 import { Select } from '../../components/ui/Select';
 import { Button } from '../../components/ui/Button';
 import { useAppStore } from '../../app/store/appStore';
@@ -31,7 +30,6 @@ export function OnboardingStep1Page() {
   const setTheme = useAppStore((s) => s.setTheme);
 
   const handleNext = () => {
-    if (draft.expectedNetIncomeDefault <= 0) return;
     navigate(ROUTES.onboardingStep2);
   };
 
@@ -44,29 +42,18 @@ export function OnboardingStep1Page() {
     <OnboardingLayout
       step={1}
       title="기본 설정"
-      subtitle="예산 계산에 필요한 기본 정보를 입력해주세요."
+      subtitle="예산 기간과 주 시작 요일, 테마를 설정해주세요."
       footer={
         <Button
           variant="primary"
           size="lg"
           fullWidth
           onClick={handleNext}
-          disabled={draft.expectedNetIncomeDefault <= 0}
         >
           다음 →
         </Button>
       }
     >
-      {/* 월 예상 순수입 */}
-      <AmountInput
-        label="월 예상 순수입"
-        value={draft.expectedNetIncomeDefault}
-        onChange={(v) => updateDraft({ expectedNetIncomeDefault: v })}
-        placeholder="0"
-        required
-        hint="세후 실수령액 기준으로 입력해주세요."
-      />
-
       {/* 월 기준 */}
       <div className={styles.fieldGroup}>
         <p className={styles.fieldLabel}>월 기준</p>

@@ -13,7 +13,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { AmountInput } from '../../components/ui/AmountInput';
 import { Button } from '../../components/ui/Button';
-import type { RecurringItem, RecurringKind, RecurringCycle, Category } from '../../domain/types';
+import type { RecurringItem, RecurringKind, RecurringCycle, Category, Account } from '../../domain/types';
 import { toLocalDateStr } from '../../domain/safetyUtils';
 import styles from './RecurringPage.module.css';
 
@@ -27,12 +27,14 @@ const KIND_LABELS: Record<RecurringKind, string> = {
   regular:      '정기지출',
   subscription: '구독',
   installment:  '할부',
+  transfer:     '자산이동',
 };
 
 const KIND_ICONS: Record<RecurringKind, string> = {
   regular:      '🔄',
   subscription: '📦',
   installment:  '💳',
+  transfer:     '💰',
 };
 
 const CYCLE_LABELS: Record<RecurringCycle, string> = {
@@ -41,7 +43,7 @@ const CYCLE_LABELS: Record<RecurringCycle, string> = {
   yearly:  '매년',
 };
 
-const TAB_KINDS: RecurringKind[] = ['regular', 'subscription', 'installment'];
+const TAB_KINDS: RecurringKind[] = ['regular', 'subscription', 'installment', 'transfer'];
 
 function emptyItem(kind: RecurringKind): RecurringItem {
   const now = new Date().toISOString();
@@ -49,7 +51,7 @@ function emptyItem(kind: RecurringKind): RecurringItem {
   return {
     id: '',
     kind,
-    title: '',
+    title: kind === 'transfer' ? '저축 이체' : '',
     amount: 0,
     categoryId: '',
     nextDueDate: today,
@@ -63,6 +65,9 @@ function emptyItem(kind: RecurringKind): RecurringItem {
     totalInstallments: 12,
     remainingInstallments: 12,
     startedAt: today,
+    fromAccountId: '',
+    toAccountId: '',
+    transferCycle: 'monthly',
     createdAt: now,
     updatedAt: now,
   };
@@ -73,15 +78,18 @@ function emptyItem(kind: RecurringKind): RecurringItem {
 interface ItemCardProps {
   item: RecurringItem;
   categoryMap: Map<string, Category>;
+  accountMap: Map<string, Account>;
   onEdit: (item: RecurringItem) => void;
   onDelete: (id: string) => void;
   onToggle: (item: RecurringItem) => void;
+  onExecuteTransfer?: (id: string) => void;
 }
 
-function RecurringItemCard({ item, categoryMap, onEdit, onDelete, onToggle }: ItemCardProps) {
+function RecurringItemCard({ item, categoryMap, accountMap, onEdit, onDelete, onToggle, onExecuteTransfer }: ItemCardProps) {
   const cat = categoryMap.get(item.categoryId);
-  const accounts = useAppStore((s) => s.accounts);
-  const account = accounts.find((a) => a.id === item.accountId);
+  const account = accountMap.get(item.accountId ?? '');
+  const fromAccount = accountMap.get(item.fromAccountId ?? '');
+  const toAccount   = accountMap.get(item.toAccountId ?? '');
   const daysUntil = (() => {
     const today = toLocalDateStr(new Date());
     if (item.nextDueDate < today) return -1;
@@ -113,11 +121,22 @@ function RecurringItemCard({ item, categoryMap, onEdit, onDelete, onToggle }: It
             )}
           </div>
           <span className={styles.cardMeta}>
-            {cat?.name ?? '미분류'}
-            {item.kind === 'regular' && item.cycle && ` · ${CYCLE_LABELS[item.cycle]}`}
-            {item.kind === 'subscription' && item.billingCycle && ` · ${CYCLE_LABELS[item.billingCycle]}`}
-            {item.kind === 'installment' && item.remainingInstallments !== undefined && ` · 잔여 ${item.remainingInstallments}회`}
-            {account && ` · ${account.name}`}
+            {item.kind === 'transfer' ? (
+              <>
+                {fromAccount ? fromAccount.name : '계좌 미지정'}
+                {' → '}
+                {toAccount ? toAccount.name : '계좌 미지정'}
+                {item.transferCycle && ` · ${CYCLE_LABELS[item.transferCycle]}`}
+              </>
+            ) : (
+              <>
+                {cat?.name ?? '미분류'}
+                {item.kind === 'regular' && item.cycle && ` · ${CYCLE_LABELS[item.cycle]}`}
+                {item.kind === 'subscription' && item.billingCycle && ` · ${CYCLE_LABELS[item.billingCycle]}`}
+                {item.kind === 'installment' && item.remainingInstallments !== undefined && ` · 잔여 ${item.remainingInstallments}회`}
+                {account && ` · ${account.name}`}
+              </>
+            )}
           </span>
         </div>
         <div className={styles.cardRight}>
@@ -131,8 +150,19 @@ function RecurringItemCard({ item, categoryMap, onEdit, onDelete, onToggle }: It
       </div>
 
       <div className={styles.cardBottom}>
-        <span className={styles.cardDue}>다음 납부 {item.nextDueDate}</span>
+        <span className={styles.cardDue}>
+          {item.kind === 'transfer' ? '다음 이체일' : '다음 납부'} {item.nextDueDate}
+        </span>
         <div className={styles.cardActions}>
+          {item.kind === 'transfer' && item.enabled && onExecuteTransfer && (
+            <button
+              className={styles.executeBtn}
+              onClick={() => onExecuteTransfer(item.id)}
+              title="이체 실행 (잔액 반영)"
+            >
+              이체
+            </button>
+          )}
           <button
             className={`${styles.toggleBtn} ${item.enabled ? styles.toggleOn : styles.toggleOff}`}
             onClick={() => onToggle(item)}
@@ -151,8 +181,9 @@ function RecurringItemCard({ item, categoryMap, onEdit, onDelete, onToggle }: It
 // ─── RecurringPage ────────────────────────────────────────────────────────────
 
 export function RecurringPage() {
-  const config = useAppStore((s) => s.config);
-  const accounts = useAppStore((s) => s.accounts);
+  const config          = useAppStore((s) => s.config);
+  const accounts        = useAppStore((s) => s.accounts);
+  const executeTransfer = useAppStore((s) => s.executeTransfer);
 
   const [activeTab, setActiveTab] = useState<RecurringKind>('regular');
   const [items, setItems]         = useState<RecurringItem[]>([]);
@@ -177,6 +208,7 @@ export function RecurringPage() {
   }, [loadItems]);
 
   const categoryMap = new Map(config.categories.map((c) => [c.id, c]));
+  const accountMap  = new Map(accounts.map((a) => [a.id, a]));
   const requiredCategories = config.categories.filter(
     (c) => c.entryKind === 'expense' && (c.budgetGroup === 'required' || c.budgetGroup === 'living'),
   );
@@ -199,6 +231,7 @@ export function RecurringPage() {
 
   async function handleSave() {
     if (!editing.title.trim() || editing.amount <= 0) return;
+    if (editing.kind === 'transfer' && (!editing.fromAccountId || !editing.toAccountId)) return;
     const now = new Date().toISOString();
     const toSave: RecurringItem = {
       ...editing,
@@ -217,10 +250,14 @@ export function RecurringPage() {
   }
 
   const tabItems = items.filter((i) => i.kind === activeTab);
-  // yearly 구독/정기지출은 월 환산 집계에서 제외 (홈화면 totalMonthly와 동일 기준)
+  // yearly 주기는 월 환산 집계에서 제외 (홈화면 totalMonthly와 동일 기준)
   const tabTotal = tabItems
     .filter((i) => i.enabled)
-    .filter((i) => i.kind === 'subscription' ? i.billingCycle !== 'yearly' : i.cycle !== 'yearly')
+    .filter((i) => {
+      if (i.kind === 'subscription') return i.billingCycle !== 'yearly';
+      if (i.kind === 'transfer')     return i.transferCycle !== 'yearly';
+      return i.cycle !== 'yearly';
+    })
     .reduce((s, i) => s + i.amount, 0);
 
   // 예정 납부 일정 (다음 30일)
@@ -233,10 +270,14 @@ export function RecurringPage() {
     .filter((i) => i.enabled && i.nextDueDate >= todayStr && i.nextDueDate <= laterStr)
     .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
 
-  // 전체 합계 (yearly 주기 항목은 월 환산에서 제외; subscription은 billingCycle 기준)
+  // 전체 합계 (yearly 주기 항목은 월 환산에서 제외)
   const totalMonthly = items
     .filter((i) => i.enabled)
-    .filter((i) => i.kind === 'subscription' ? i.billingCycle !== 'yearly' : i.cycle !== 'yearly')
+    .filter((i) => {
+      if (i.kind === 'subscription') return i.billingCycle !== 'yearly';
+      if (i.kind === 'transfer')     return i.transferCycle !== 'yearly';
+      return i.cycle !== 'yearly';
+    })
     .reduce((s, i) => s + i.amount, 0);
 
   return (
@@ -317,9 +358,11 @@ export function RecurringPage() {
                     key={item.id}
                     item={item}
                     categoryMap={categoryMap}
+                    accountMap={accountMap}
                     onEdit={openEdit}
                     onDelete={handleDelete}
                     onToggle={handleToggle}
+                    onExecuteTransfer={executeTransfer}
                   />
                 ))}
               </div>
@@ -339,7 +382,8 @@ export function RecurringPage() {
               <div className={styles.upcomingList}>
                 {upcoming.map((item) => {
                   const cat = categoryMap.get(item.categoryId);
-                  // 'T00:00:00'을 붙여 로컬 시간 기준 파싱 (UTC 파싱 방지)
+                  const fromAcc = accountMap.get(item.fromAccountId ?? '');
+                  const toAcc   = accountMap.get(item.toAccountId ?? '');
                   const daysUntil = Math.ceil((new Date(item.nextDueDate + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24));
                   return (
                     <div key={item.id} className={styles.upcomingItem}>
@@ -352,7 +396,11 @@ export function RecurringPage() {
                       <span className={styles.upcomingIcon}>{cat?.icon ?? KIND_ICONS[item.kind]}</span>
                       <div className={styles.upcomingInfo}>
                         <span className={styles.upcomingTitle}>{item.title}</span>
-                        <span className={styles.upcomingMeta}>{cat?.name ?? '미분류'} · {KIND_LABELS[item.kind]}</span>
+                        <span className={styles.upcomingMeta}>
+                          {item.kind === 'transfer'
+                            ? `${fromAcc?.name ?? '?'} → ${toAcc?.name ?? '?'} · 자산이동`
+                            : `${cat?.name ?? '미분류'} · ${KIND_LABELS[item.kind]}`}
+                        </span>
                       </div>
                       <span className={styles.upcomingAmount}>{fmt(item.amount)}</span>
                     </div>
@@ -400,50 +448,112 @@ export function RecurringPage() {
             label="제목"
             value={editing.title}
             onChange={(e) => update('title', e.target.value)}
-            placeholder="예: 넷플릭스"
+            placeholder={editing.kind === 'transfer' ? '예: 저축 이체' : '예: 넷플릭스'}
             required
           />
 
-          <div className={styles.formField}>
-            <label className={styles.formLabel}>카테고리</label>
-            <Select
-              value={editing.categoryId}
-              onChange={(e) => update('categoryId', e.target.value)}
-              options={[
-                { value: '', label: '카테고리 선택' },
-                ...requiredCategories.map((c) => ({ value: c.id, label: `${c.icon ?? ''} ${c.name}` })),
-              ]}
-            />
-          </div>
+          {/* transfer 전용 폼 */}
+          {editing.kind === 'transfer' ? (
+            <>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>이체 금액</label>
+                <AmountInput value={editing.amount} onChange={(v) => update('amount', v)} placeholder="0" />
+              </div>
 
-          <div className={styles.formField}>
-            <label className={styles.formLabel}>금액</label>
-            <AmountInput value={editing.amount} onChange={(v) => update('amount', v)} placeholder="0" />
-          </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>출금 계좌 (이체 출발)</label>
+                <Select
+                  value={editing.fromAccountId ?? ''}
+                  onChange={(e) => update('fromAccountId', e.target.value)}
+                  options={[
+                    { value: '', label: '계좌 선택' },
+                    ...accounts.filter((a) => a.isActive).map((a) => ({
+                      value: a.id,
+                      label: `${a.institution ? a.institution + ' ' : ''}${a.name}${a.isBudgetAccount ? ' (생활비)' : ''}`,
+                    })),
+                  ]}
+                />
+              </div>
 
-          <Input
-            label="다음 납부일"
-            value={editing.nextDueDate}
-            onChange={(e) => update('nextDueDate', e.target.value)}
-            type="date"
-          />
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>입금 계좌 (이체 도착)</label>
+                <Select
+                  value={editing.toAccountId ?? ''}
+                  onChange={(e) => update('toAccountId', e.target.value)}
+                  options={[
+                    { value: '', label: '계좌 선택' },
+                    ...accounts.filter((a) => a.isActive && a.id !== editing.fromAccountId).map((a) => ({
+                      value: a.id,
+                      label: `${a.institution ? a.institution + ' ' : ''}${a.name}`,
+                    })),
+                  ]}
+                />
+              </div>
 
-          <div className={styles.formField}>
-            <label className={styles.formLabel}>연결 출금 계좌 (선택)</label>
-            <Select
-              value={editing.accountId ?? ''}
-              onChange={(e) => update('accountId', e.target.value)}
-              options={[
-                { value: '', label: '계좌 선택 안함' },
-                ...accounts
-                  .filter((a) => a.isActive)
-                  .map((a) => ({
-                    value: a.id,
-                    label: `${a.institution ? a.institution + ' ' : ''}${a.name}${a.isBudgetAccount ? ' (생활비)' : ''}`,
-                  })),
-              ]}
-            />
-          </div>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>이체 주기</label>
+                <Select
+                  value={editing.transferCycle ?? 'monthly'}
+                  onChange={(e) => update('transferCycle', e.target.value as RecurringCycle)}
+                  options={[
+                    { value: 'monthly', label: '매월' },
+                    { value: 'weekly',  label: '매주' },
+                    { value: 'yearly',  label: '매년' },
+                  ]}
+                />
+              </div>
+
+              <Input
+                label="다음 이체일"
+                value={editing.nextDueDate}
+                onChange={(e) => update('nextDueDate', e.target.value)}
+                type="date"
+              />
+            </>
+          ) : (
+            <>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>카테고리</label>
+                <Select
+                  value={editing.categoryId}
+                  onChange={(e) => update('categoryId', e.target.value)}
+                  options={[
+                    { value: '', label: '카테고리 선택' },
+                    ...requiredCategories.map((c) => ({ value: c.id, label: `${c.icon ?? ''} ${c.name}` })),
+                  ]}
+                />
+              </div>
+
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>금액</label>
+                <AmountInput value={editing.amount} onChange={(v) => update('amount', v)} placeholder="0" />
+              </div>
+
+              <Input
+                label="다음 납부일"
+                value={editing.nextDueDate}
+                onChange={(e) => update('nextDueDate', e.target.value)}
+                type="date"
+              />
+
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>연결 출금 계좌 (선택)</label>
+                <Select
+                  value={editing.accountId ?? ''}
+                  onChange={(e) => update('accountId', e.target.value)}
+                  options={[
+                    { value: '', label: '계좌 선택 안함' },
+                    ...accounts
+                      .filter((a) => a.isActive)
+                      .map((a) => ({
+                        value: a.id,
+                        label: `${a.institution ? a.institution + ' ' : ''}${a.name}${a.isBudgetAccount ? ' (생활비)' : ''}`,
+                      })),
+                  ]}
+                />
+              </div>
+            </>
+          )}
 
           {editing.kind === 'regular' && (
             <div className={styles.formField}>

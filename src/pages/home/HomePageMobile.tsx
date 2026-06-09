@@ -99,8 +99,9 @@ export function HomePageMobile() {
   const setActiveMonth = useAppStore((s) => s.setActiveMonth);
   const userTier      = useAppStore((s) => s.userTier);
   const lastSyncedAt  = useAppStore((s) => s.lastSyncedAt);
-  const accounts      = useAppStore((s) => s.accounts);
-  const liabilities   = useAppStore((s) => s.liabilities);
+  const accounts        = useAppStore((s) => s.accounts);
+  const liabilities     = useAppStore((s) => s.liabilities);
+  const recurringItems  = useAppStore((s) => s.recurringItems);
   const navigate      = useNavigate();
   const isFree        = !hasFeature(userTier, 'record');
 
@@ -163,7 +164,7 @@ export function HomePageMobile() {
   const { start: periodStart, end: periodEnd } = getBudgetPeriodForMonth(activeMonth, config);
   const virtualToday = realToday < periodStart ? periodStart : realToday;
 
-  const safetyInput    = buildSafetyInput(transactions, config, virtualToday, budgetPlan?.totalBudgetAmount ?? undefined, accounts);
+  const safetyInput    = buildSafetyInput(transactions, config, virtualToday, budgetPlan?.totalBudgetAmount ?? undefined, accounts, recurringItems);
   const summary: SafetySummary = calcSafetySummary(safetyInput);
   const scoreNum       = Math.round(summary.safetyScore);
   const categoryMap    = new Map(config.categories.map((c) => [c.id, c]));

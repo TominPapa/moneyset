@@ -14,7 +14,7 @@ import type { AppState, UserTier } from '../../storage/driveAdapter';
 import { parseTierFromCode } from '../../domain/tiers';
 import { driveAdapter } from '../../storage/driveAdapterImpl';
 import { localCache } from '../../storage/localCacheImpl';
-import { saveBudgetPlan, saveRecurringItems, syncPendingToDrive, migrateLocalDataToDrive } from '../../storage/localPlanStore';
+import { saveBudgetPlan, saveRecurringItems, upsertRecurringItem, syncPendingToDrive, migrateLocalDataToDrive } from '../../storage/localPlanStore';
 import { maybeSaveSnapshot } from '../../storage/backupService';
 import type { RecurringItem } from '../../domain/types';
 import { ROUTES } from '../routes';
@@ -44,6 +44,12 @@ interface AppStore {
   setAccounts: (accounts: Account[]) => void;
   liabilities: Liability[];
   setLiabilities: (liabilities: Liability[]) => void;
+
+  // 정기 항목 (정기지출/구독/할부/자산이동)
+  recurringItems: RecurringItem[];
+  setRecurringItems: (items: RecurringItem[]) => void;
+  /** 자산이동(이체) 실행: from/to 계좌 잔액 업데이트 + 다음 이체일 갱신 */
+  executeTransfer: (recurringItemId: string) => Promise<void>;
 
   // 사용자 프로필 (Google 계정)
   userProfile: { name: string; email: string; picture: string } | null;
@@ -215,6 +221,54 @@ export const useAppStore = create<AppStore>((set, get) => ({
   liabilities: [],
   setLiabilities: (liabilities) => set({ liabilities }),
 
+  recurringItems: [],
+  setRecurringItems: (items) => set({ recurringItems: items }),
+  executeTransfer: async (recurringItemId: string) => {
+    const { recurringItems, accounts } = get();
+    const item = recurringItems.find((r) => r.id === recurringItemId);
+    if (!item || item.kind !== 'transfer') return;
+
+    const fromAccount = accounts.find((a) => a.id === item.fromAccountId);
+    const toAccount   = accounts.find((a) => a.id === item.toAccountId);
+    if (!fromAccount || !toAccount) return;
+
+    const now = new Date().toISOString();
+
+    // 계좌 잔액 업데이트
+    const updatedAccounts = accounts.map((a) => {
+      if (a.id === fromAccount.id) return { ...a, balance: a.balance - item.amount, lastUpdatedAt: now };
+      if (a.id === toAccount.id)   return { ...a, balance: a.balance + item.amount, lastUpdatedAt: now };
+      return a;
+    });
+
+    // 다음 이체일 계산
+    const cycle = item.transferCycle ?? 'monthly';
+    const next = new Date(item.nextDueDate + 'T00:00:00');
+    if (cycle === 'monthly') next.setMonth(next.getMonth() + 1);
+    else if (cycle === 'weekly') next.setDate(next.getDate() + 7);
+    else if (cycle === 'yearly') next.setFullYear(next.getFullYear() + 1);
+    const nextDueStr = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`;
+
+    const updatedRecurring = recurringItems.map((r) =>
+      r.id === recurringItemId ? { ...r, nextDueDate: nextDueStr, updatedAt: now } : r
+    );
+
+    // 저장
+    const updatedItem = updatedRecurring.find((r) => r.id === recurringItemId)!;
+    await upsertRecurringItem(updatedItem);
+
+    await localCache.setAccounts(updatedAccounts);
+    driveAdapter.writeAccounts({
+      schemaVersion: '1.0',
+      fileType: 'accounts.json',
+      updatedAt: now,
+      revisionHint: crypto.randomUUID(),
+      data: updatedAccounts,
+    }).catch(() => {});
+
+    set({ accounts: updatedAccounts, recurringItems: updatedRecurring });
+  },
+
   isSyncing: false,
   lastSyncedAt: null,
   syncError: null,
@@ -228,6 +282,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // 세션 복원 및 초기화
   initApp: async () => {
     await localCache.init(); // no-op
+
+    // 1) 같은 탭 새로고침: sessionStorage에 토큰이 있으면 바로 복원
     const token = sessionStorage.getItem('__oauth_token__');
     if (token) {
       try {
@@ -238,7 +294,23 @@ export const useAppStore = create<AppStore>((set, get) => ({
         console.error('Failed to auto login on refresh:', err);
         sessionStorage.removeItem('__oauth_token__');
       }
+      set({ isInitialized: true });
+      return;
     }
+
+    // 2) 새 탭 / 브라우저 재시작: 이전 로그인 기록이 있으면 silent re-auth 시도
+    //    Google 계정에 여전히 로그인 상태이면 사용자 개입 없이 자동 복원됨
+    const hasPrevSession = localStorage.getItem('__has_session__') === '1';
+    if (hasPrevSession) {
+      try {
+        const newToken = await driveAdapter.silentReauth();
+        await get().login(newToken);
+      } catch (silentErr) {
+        // 구글 로그아웃 상태거나 재동의 필요 → 로그인 화면 표시
+        console.warn('[initApp] Silent re-auth failed, showing login page:', silentErr);
+      }
+    }
+
     set({ isInitialized: true });
   },
 
@@ -246,6 +318,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Drive가 단일 진실 공급원: 항상 Drive에서 최신 데이터를 읽음
   login: async (token: string) => {
     sessionStorage.setItem('__oauth_token__', token);
+    // 이전 로그인 기록 저장 → 다음 방문 시 silent re-auth 시도 여부 판단에 사용
+    localStorage.setItem('__has_session__', '1');
     driveAdapter.setAccessToken(token);
     const ym = currentYM();
 
@@ -332,11 +406,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
         await localCache.deleteBudgetPlan(ym);
       }
     }
-    if (recurringEnv.status === 'fulfilled') {
-      const driveRecurring = guardArray<RecurringItem>(recurringEnv.value?.data);
-      if (driveRecurring.length > 0) {
-        await saveRecurringItems(driveRecurring);
-      }
+    const driveRecurring: RecurringItem[] =
+      recurringEnv.status === 'fulfilled' ? guardArray<RecurringItem>(recurringEnv.value?.data) : [];
+    if (driveRecurring.length > 0) {
+      await saveRecurringItems(driveRecurring);
     }
 
     set({ loginStep: '거의 다 됐어요!' });
@@ -373,6 +446,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       onboardingCompleted,
       accounts,
       liabilities,
+      recurringItems: driveRecurring,
       loginStep: null,
       userTier: driveAppState?.userTier ?? 'free',
       activatedCode: driveAppState?.activatedCode ?? null,
@@ -390,6 +464,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     await driveAdapter.signOut();
     await localCache.clear(); // 인메모리 데이터 전체 초기화
     sessionStorage.removeItem('__oauth_token__');
+    localStorage.removeItem('__has_session__');
 
     // 로컬 스토리지에 남아있던 캐시 백업 데이터 청소
     for (let i = localStorage.length - 1; i >= 0; i--) {

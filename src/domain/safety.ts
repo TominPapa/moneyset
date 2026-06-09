@@ -29,6 +29,8 @@ export interface SafetyInput {
   overrideMonthlyBudgetBase?: number; // 예산 계획에서 수립된 총 생활비 예산 금액
   budgetAccountBalanceTotal?: number; // 생활비 통장 잔액 합계
   hasBudgetAccount?: boolean;        // 생활비 통장 존재 여부
+  scheduledTransferTotal?: number;   // 정기 자산이동(저축이체) 월 합계
+  periodFixedRemaining?: number;     // 오늘~기간종료 사이 미납 고정지출 합계
 }
 
 // ─── 8.3.1 월간 총 가용 예산 ──────────────────────────────────────────────────
@@ -49,6 +51,7 @@ export function calcMonthlyBudgetBase(input: SafetyInput): number {
     - input.fixedRequiredTotal
     - input.plannedRequiredTotal
     - input.savingsTarget
+    - (input.scheduledTransferTotal ?? 0)
   );
 }
 
@@ -160,9 +163,11 @@ export function calcSafetySummary(
   let monthlySpendableRemaining = 0;
 
   if (input.hasBudgetAccount && input.budgetAccountBalanceTotal !== undefined) {
-    // 1. 생활비 통장이 등록된 경우: 통장 잔액의 합계가 '남은 생활비'가 됨
-    monthlySpendableRemaining = input.budgetAccountBalanceTotal;
-    // 가용 예산 베이스 = 현재 잔액 + 이번 달에 이미 쓴 생활비 누계
+    // 1. 생활비 통장이 등록된 경우
+    //    실질 가용 = 통장 잔액 - 기간 내 미납 고정지출 (앞으로 나갈 의무 지출 선차감)
+    const upcomingFixed = input.periodFixedRemaining ?? 0;
+    monthlySpendableRemaining = input.budgetAccountBalanceTotal - upcomingFixed;
+    // 가용 예산 베이스 = 실질 가용 + 이미 쓴 생활비 누계
     monthlyBudgetBase = monthlySpendableRemaining + input.livingSpentSoFar;
   } else {
     // 2. 생활비 통장이 없는 경우 (기존의 예상 수입 기반 폴백)

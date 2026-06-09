@@ -1,7 +1,7 @@
 // safetyUtils.ts — RESET Budget
 // 실제 앱 데이터에서 SafetyInput / AssetSummary 를 도출하는 순수 헬퍼 함수
 
-import type { Transaction, AppConfig, Account, Liability, AssetSummary } from './types';
+import type { Transaction, AppConfig, Account, Liability, AssetSummary, RecurringItem } from './types';
 import type { SafetyInput } from './safety';
 
 // ─── 날짜 유틸 ────────────────────────────────────────────────────────────────
@@ -191,6 +191,7 @@ export function buildSafetyInput(
   today: Date = new Date(),
   overrideMonthlyBudgetBase?: number,
   accounts: Account[] = [],
+  recurringItems: RecurringItem[] = [],
 ): SafetyInput {
   const todayStr = toLocalDateStr(today);
   const { start, end } = getBudgetPeriod(today, config);
@@ -249,6 +250,45 @@ export function buildSafetyInput(
   const hasBudgetAccount = budgetAccounts.length > 0;
   const budgetAccountBalanceTotal = budgetAccounts.reduce((sum, a) => sum + a.balance, 0);
 
+  // 오늘 이후 ~ 기간 종료일 사이에 납부되는 고정지출 합계
+  const periodFixedExpenses = config.fixedExpenses
+    .filter((fe) => fe.isActive)
+    .reduce((sum, fe) => {
+      const thisMonthDue = new Date(today.getFullYear(), today.getMonth(), fe.dueDay);
+      // 이번 달 납부일이 이미 지났으면 다음 달 납부일 사용
+      const nextDue = thisMonthDue >= today
+        ? thisMonthDue
+        : new Date(today.getFullYear(), today.getMonth() + 1, fe.dueDay);
+      return nextDue <= end ? sum + fe.amount : sum;
+    }, 0);
+
+  // 생활비 통장에서 나가는 정기 이체 — 기간 내 예정 건도 선차감 대상
+  // (이체도 생활비 통장 잔액을 감소시키므로 Mode A의 periodFixedRemaining에 포함)
+  const budgetAccountIds = new Set(budgetAccounts.map((a) => a.id));
+  const periodTransferFromBudget = recurringItems
+    .filter((r) =>
+      r.kind === 'transfer' &&
+      r.enabled &&
+      r.fromAccountId != null &&
+      budgetAccountIds.has(r.fromAccountId) &&
+      r.nextDueDate != null,
+    )
+    .reduce((sum, r) => {
+      const nextDue = new Date(r.nextDueDate! + 'T00:00:00');
+      return nextDue >= today && nextDue <= end ? sum + r.amount : sum;
+    }, 0);
+
+  const periodFixedRemaining = periodFixedExpenses + periodTransferFromBudget;
+
+  // 정기 자산이동(이체) 항목 월 합계 — 수입 기반 모드에서만 예산 차감에 활용
+  // yearly 주기는 월 환산 (÷12), 나머지는 금액 그대로 합산
+  const scheduledTransferTotal = recurringItems
+    .filter((r) => r.kind === 'transfer' && r.enabled)
+    .reduce((s, r) => {
+      if (r.transferCycle === 'yearly') return s + Math.round(r.amount / 12);
+      return s + r.amount;
+    }, 0);
+
   return {
     expectedNetIncome: config.expectedNetIncomeDefault,
     fixedRequiredTotal,
@@ -267,6 +307,8 @@ export function buildSafetyInput(
     overrideMonthlyBudgetBase,
     budgetAccountBalanceTotal,
     hasBudgetAccount,
+    scheduledTransferTotal,
+    periodFixedRemaining,
   };
 }
 

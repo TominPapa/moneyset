@@ -63,6 +63,7 @@ export const IcTrending     = ic('M3 14 8 9l3 3 6-6M13 7h4v4');
 export const IcWallet       = ic('M4 6.5A1.5 1.5 0 0 1 5.5 5h10A1.5 1.5 0 0 1 17 6.5v8A1.5 1.5 0 0 1 15.5 16h-10A1.5 1.5 0 0 1 4 14.5v-8Z', <><path d="M14 11h1"/><path d="M4 8h13"/></>);
 export const IcMoon         = ic('M15.5 12.5A6 6 0 0 1 7.5 4.5 6 6 0 1 0 15.5 12.5Z');
 export const IcSun          = ic('M10 6a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z', <path d="M10 2v2m0 12v2M2 10h2m12 0h2M4 4l1.5 1.5M14.5 14.5 16 16M4 16l1.5-1.5M14.5 5.5 16 4"/>);
+export const IcDots         = ic('M6 10.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z');
 
 // ── Category icons ──────────────────────────────────────────────────────────
 export const IcFood       = ic('M6 3v6a2 2 0 0 0 4 0V3M8 9v8M14 3c-1.5 0-2.5 2-2.5 4s.5 3 1.5 3v7h2V3Z');

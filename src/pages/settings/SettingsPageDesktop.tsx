@@ -1079,7 +1079,6 @@ export function SettingsPageDesktop() {
   const [saving, setSaving]                 = useState(false);
   const [saveMsg, setSaveMsg]               = useState('');
 
-  const [expectedIncomeInput, setExpectedIncomeInput] = useState(config.expectedNetIncomeDefault);
   const [savingsTargetInput, setSavingsTargetInput] = useState(config.savingsTargetDefault);
   const [monthModeInput, setMonthModeInput] = useState(config.monthMode);
   const [paydayInput, setPaydayInput] = useState(config.payday);
@@ -1088,13 +1087,11 @@ export function SettingsPageDesktop() {
 
   useEffect(() => {
     setThresholdInput(String(config.resetThresholdDays));
-    setExpectedIncomeInput(config.expectedNetIncomeDefault);
     setSavingsTargetInput(config.savingsTargetDefault);
     setMonthModeInput(config.monthMode);
     setPaydayInput(config.payday);
   }, [
     config.resetThresholdDays,
-    config.expectedNetIncomeDefault,
     config.savingsTargetDefault,
     config.monthMode,
     config.payday
@@ -1155,7 +1152,7 @@ export function SettingsPageDesktop() {
   };
 
   const handleBudgetSave = async () => {
-    if (expectedIncomeInput < 0 || savingsTargetInput < 0) {
+    if (savingsTargetInput < 0) {
       setBudgetSaveMsg('올바른 금액을 입력해주세요.');
       return;
     }
@@ -1164,7 +1161,6 @@ export function SettingsPageDesktop() {
     try {
       await applyConfig({
         ...config,
-        expectedNetIncomeDefault: expectedIncomeInput,
         savingsTargetDefault: savingsTargetInput,
         monthMode: monthModeInput,
         payday: paydayInput,
@@ -1313,17 +1309,9 @@ export function SettingsPageDesktop() {
           </div>
 
           <div className={styles.section}>
-            <span className={styles.sectionTitle}>기본 수입 및 저축 목표</span>
-            <p className={styles.sectionDesc}>매월 기준이 되는 예상 실수령액과 저축 목표액, 수입 기준일을 설정합니다.</p>
+            <span className={styles.sectionTitle}>저축 목표 및 예산 기준일</span>
+            <p className={styles.sectionDesc}>저축 목표액과 수입 기준일을 설정합니다.</p>
             <div className={styles.form} style={{ gap: 'var(--space-sm)', maxWidth: '320px' }}>
-              <div className={styles.formField}>
-                <label className={styles.formLabel}>기본 실수령 수입</label>
-                <AmountInput
-                  value={expectedIncomeInput}
-                  onChange={(v) => setExpectedIncomeInput(v)}
-                  placeholder="0"
-                />
-              </div>
               <div className={styles.formField}>
                 <label className={styles.formLabel}>기본 저축 목표액</label>
                 <AmountInput

@@ -192,12 +192,13 @@ function InsightRow({ tone, icon, title, detail }: {
   );
 }
 
-function CashflowChart({ remaining, fixedExpenses, dailyBudget }: {
+function CashflowChart({ remaining, fixedExpenses, dailyBudget, remainingDays }: {
   remaining: number;
   fixedExpenses: { name: string; amount: number; dueDay: number; color: string }[];
   dailyBudget: number;
+  remainingDays?: number;
 }) {
-  const days = 30;
+  const days = Math.max(2, remainingDays ?? 30);
   let running = remaining;
   const proj: number[] = [];
   const sortedFixed = [...fixedExpenses].sort((a, b) => a.dueDay - b.dueDay);
@@ -364,7 +365,7 @@ export function HomePageDesktop() {
   const { start: periodStart, end: periodEnd } = getBudgetPeriodForMonth(activeMonth, config);
   const virtualToday = realToday < periodStart ? periodStart : realToday;
 
-  const safetyInput    = buildSafetyInput(transactions, config, virtualToday, budgetPlan?.totalBudgetAmount ?? undefined, accounts);
+  const safetyInput    = buildSafetyInput(transactions, config, virtualToday, budgetPlan?.totalBudgetAmount ?? undefined, accounts, recurringItems);
   const summary: SafetySummary = calcSafetySummary(safetyInput);
   const settlement     = calcSharedSettlementSummary(sharedExpenses, transfers, activeMonth, toLocalDateStr(periodStart), toLocalDateStr(periodEnd));
   const scoreNum       = Math.round(summary.safetyScore);
@@ -448,7 +449,7 @@ export function HomePageDesktop() {
     .filter(r => r.billingCycle !== 'yearly')
     .reduce((s,r) => s+r.amount, 0);
   const recurringTotal    = recurringItems
-    .filter(r => r.enabled)
+    .filter(r => r.enabled && r.kind !== 'transfer')
     .filter(r => r.kind === 'subscription' ? r.billingCycle !== 'yearly' : r.cycle !== 'yearly')
     .reduce((s,r) => s+r.amount, 0);
 
@@ -459,25 +460,62 @@ export function HomePageDesktop() {
   const weekOk     = summary.weeklyOverspendRatio <= 1 && summary.monthlySpendableRemaining >= 0;
   const weekWarn   = summary.weeklyOverspendRatio > 1 && summary.monthlySpendableRemaining >= 0;
 
-  const fixedForChart = config.fixedExpenses
-    .filter(fe => fe.isActive)
-    .map(fe => ({
-      name: fe.name, amount: fe.amount, dueDay: fe.dueDay,
-      color: 'var(--gold-500)',
-    }));
-
-  const fixedDDayList = isCurrentMonth
-    ? config.fixedExpenses
-        .filter(r => r.isActive)
-        .map(r => ({
-          ...r,
-          daysUntil: r.dueDay >= todayDay
-            ? r.dueDay - todayDay
-            : Math.round((new Date(yl, ml, r.dueDay).getTime() - new Date(yl, ml - 1, todayDay).getTime()) / (1000 * 60 * 60 * 24)),
-          isPastThisMonth: r.dueDay < todayDay,
-        }))
-        .sort((a,b) => a.daysUntil - b.daysUntil)
+  // 오늘~기간 종료일 사이에 납부되는 고정지출만 포함
+  const fixedInPeriod = isCurrentMonth
+    ? config.fixedExpenses.filter(fe => {
+        if (!fe.isActive) return false;
+        const thisMonthDue = new Date(today.getFullYear(), today.getMonth(), fe.dueDay);
+        const nextDue = thisMonthDue >= today
+          ? thisMonthDue
+          : new Date(today.getFullYear(), today.getMonth() + 1, fe.dueDay);
+        return nextDue <= periodEnd;
+      })
     : [];
+
+  // 생활비 통장에서 나가는 정기 이체 — 기간 내 예정 건 (차트·D-Day에 포함)
+  const budgetAccountIds = new Set(accounts.filter(a => a.isActive && a.isBudgetAccount).map(a => a.id));
+  const transfersFromBudgetInPeriod = isCurrentMonth
+    ? recurringItems.filter(r => {
+        if (r.kind !== 'transfer' || !r.enabled || !r.fromAccountId || !r.nextDueDate) return false;
+        if (!budgetAccountIds.has(r.fromAccountId)) return false;
+        const nextDue = new Date(r.nextDueDate + 'T00:00:00');
+        return nextDue >= today && nextDue <= periodEnd;
+      }).map(r => {
+        const nextDue = new Date(r.nextDueDate! + 'T00:00:00');
+        const daysUntil = Math.round((nextDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          name: r.title,
+          amount: r.amount,
+          dueDay: parseInt(r.nextDueDate!.split('-')[2], 10),
+          daysUntil,
+          color: 'var(--mint-500, #3fd6a4)',
+        };
+      })
+    : [];
+
+  const fixedForChart = [
+    ...fixedInPeriod.map(fe => ({ name: fe.name, amount: fe.amount, dueDay: fe.dueDay, color: 'var(--gold-500)' })),
+    ...transfersFromBudgetInPeriod.map(t => ({ name: t.name, amount: t.amount, dueDay: t.dueDay, color: t.color })),
+  ];
+
+  const fixedDDayList = [
+    ...fixedInPeriod.map(r => ({
+      name: r.name,
+      amount: r.amount,
+      dueDay: r.dueDay,
+      daysUntil: r.dueDay >= todayDay
+        ? r.dueDay - todayDay
+        : Math.round((new Date(yl, ml, r.dueDay).getTime() - new Date(yl, ml - 1, todayDay).getTime()) / (1000 * 60 * 60 * 24)),
+      isPastThisMonth: r.dueDay < todayDay,
+    })),
+    ...transfersFromBudgetInPeriod.map(t => ({
+      name: t.name,
+      amount: t.amount,
+      dueDay: t.dueDay,
+      daysUntil: t.daysUntil,
+      isPastThisMonth: false,
+    })),
+  ].sort((a, b) => a.daysUntil - b.daysUntil);
 
   const recentTxs = [...transactions]
     .filter(tx => tx.date <= todayStr)
@@ -782,6 +820,7 @@ export function HomePageDesktop() {
               remaining={summary.monthlySpendableRemaining}
               fixedExpenses={fixedForChart}
               dailyBudget={dailyLimit}
+              remainingDays={daysLeftInPeriod}
             />
           </div>
 

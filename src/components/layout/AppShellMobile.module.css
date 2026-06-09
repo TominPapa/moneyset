@@ -287,3 +287,64 @@
   -webkit-overflow-scrolling: touch;
   padding: 16px;
 }
+
+/* ── 더보기 메뉴 시트 ─────────────────────────────────────────────────────── */
+
+.moreMenuList {
+  padding: 8px 0 16px;
+}
+
+.moreMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 15px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-0);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  transition: background 0.12s;
+  border-bottom: 1px solid var(--line);
+}
+
+.moreMenuItem:last-child {
+  border-bottom: none;
+}
+
+.moreMenuItem:active {
+  background: var(--bg-2);
+}
+
+.moreMenuItemActive {
+  color: var(--mint-400);
+}
+
+.moreMenuItemActive .moreMenuIcon {
+  color: var(--mint-400);
+}
+
+.moreMenuIcon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--bg-2);
+  border-radius: 10px;
+  color: var(--text-1);
+  flex-shrink: 0;
+}
+
+.moreMenuLabel {
+  flex: 1;
+}
+
+.moreMenuItem svg:last-child {
+  color: var(--text-3);
+  flex-shrink: 0;
+}

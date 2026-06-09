@@ -5,7 +5,8 @@ import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../app/routes';
 import {
-  IcHome, IcList, IcShield, IcChart, IcCog, IcSparkle
+  IcHome, IcList, IcShield, IcChart, IcCog, IcSparkle,
+  IcBudget, IcRepeat, IcWallet, IcUsers, IcChevronRight, IcDots,
 } from '../ui/Icons';
 import { CoachPanel } from '../coach/CoachPanel';
 import { useAppStore } from '../../app/store/appStore';
@@ -20,12 +21,21 @@ interface NavItem {
 }
 
 const BOTTOM_NAV: NavItem[] = [
-  { path: ROUTES.home,         label: '홈',      Icon: IcHome   },
-  { path: ROUTES.record,       label: '기록',    Icon: IcList,   feature: 'record' },
-  { path: ROUTES.safety,       label: '안전도',  Icon: IcShield, feature: 'safety' },
-  { path: ROUTES.statsMonthly, label: '통계',    Icon: IcChart,  feature: 'stats'  },
-  { path: ROUTES.settings,     label: '설정',    Icon: IcCog    },
+  { path: ROUTES.home,         label: '홈',    Icon: IcHome   },
+  { path: ROUTES.record,       label: '기록',  Icon: IcList,   feature: 'record' },
+  { path: ROUTES.safety,       label: '안전도', Icon: IcShield, feature: 'safety' },
+  { path: ROUTES.statsMonthly, label: '통계',  Icon: IcChart,  feature: 'stats'  },
 ];
+
+// 하단 탭에서 숨겨진 나머지 메뉴 (더보기 시트에 표시)
+const MORE_NAV: NavItem[] = [
+  { path: ROUTES.budget,     label: '예산',    Icon: IcBudget, feature: 'budget'     },
+  { path: ROUTES.recurring,  label: '정기지출', Icon: IcRepeat, feature: 'recurring'  },
+  { path: ROUTES.debt,       label: '부채관리', Icon: IcWallet, feature: 'debt'       },
+  { path: ROUTES.settlement, label: '공동정산', Icon: IcUsers,  feature: 'settlement' },
+  { path: ROUTES.settings,   label: '설정',    Icon: IcCog    },
+];
+const MORE_PATHS = new Set(MORE_NAV.map((i) => i.path));
 
 function MiniLogo() {
   return (
@@ -47,6 +57,8 @@ export function AppShellMobile() {
   const lastSyncedAt  = useAppStore((s) => s.lastSyncedAt);
   const isSyncing   = useAppStore((s) => s.isSyncing);
   const [coachOpen, setCoachOpen] = useState(false);
+  const [moreOpen,  setMoreOpen]  = useState(false);
+  const isMoreActive = MORE_PATHS.has(location.pathname);
 
   function isActive(item: NavItem) {
     return (
@@ -125,7 +137,54 @@ export function AppShellMobile() {
             </button>
           );
         })}
+
+        {/* 더보기 탭 */}
+        <button
+          className={`${styles.navItem} ${isMoreActive || moreOpen ? styles.navItemActive : ''}`}
+          onClick={() => setMoreOpen(true)}
+          aria-label="더보기 메뉴"
+          type="button"
+        >
+          <div className={`${styles.iconWrap} ${isMoreActive ? styles.bounce : ''}`}>
+            <IcDots size={22} />
+          </div>
+          <span className={styles.navLabel}>더보기</span>
+        </button>
       </nav>
+
+      {/* ── 더보기 Bottom Sheet ── */}
+      {moreOpen && (
+        <div className={styles.backdrop} onClick={() => setMoreOpen(false)}>
+          <div className={styles.bottomSheet} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.sheetHeader}>
+              <div className={styles.dragHandle} />
+              <div className={styles.sheetTitle}>메뉴</div>
+              <button className={styles.closeBtn} onClick={() => setMoreOpen(false)} type="button">✕</button>
+            </div>
+            <div className={styles.moreMenuList}>
+              {MORE_NAV.map((item) => {
+                const active = location.pathname === item.path;
+                const locked = isLocked(item);
+                return (
+                  <button
+                    key={item.path}
+                    className={`${styles.moreMenuItem} ${active ? styles.moreMenuItemActive : ''}`}
+                    onClick={() => { setMoreOpen(false); handleNav(item); }}
+                    type="button"
+                  >
+                    <div className={styles.moreMenuIcon}>
+                      <item.Icon size={20} />
+                      {locked && <span className={styles.navLockBadge}>🔒</span>}
+                    </div>
+                    <span className={styles.moreMenuLabel}>{item.label}</span>
+                    <IcChevronRight size={16} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── AI Coach Bottom Sheet ── */}
       {coachOpen && (
