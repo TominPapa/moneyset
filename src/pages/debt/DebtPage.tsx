@@ -137,8 +137,8 @@ function NextPayments({ liabilities }: { liabilities: Liability[] }) {
         return (
           <div key={item.id} className={styles.nextItem} style={{ borderLeftColor: color }}>
             <div className={styles.nextDay}>
-              <div className={styles.nextDayNum} style={{ color: isPast ? 'var(--text-3)' : color }}>{item.dueDay}</div>
-              <div className={styles.nextDayLabel}>일</div>
+              <div className={styles.nextDayNum} style={{ color: isPast ? 'var(--text-3)' : color }}>{item.dueDay >= 31 ? '말일' : item.dueDay}</div>
+              {item.dueDay < 31 && <div className={styles.nextDayLabel}>일</div>}
             </div>
             <div className={styles.nextDivider} />
             <div className={styles.nextName}>{item.name}</div>
@@ -213,7 +213,7 @@ function DebtCard({ item }: { item: Liability }) {
         </div>
         <div className={styles.debtCardStat}>
           <div className={styles.debtCardStatLabel}>납부일</div>
-          <div className={styles.debtCardStatValue}>매월 {item.dueDay}일</div>
+          <div className={styles.debtCardStatValue}>매월 {item.dueDay >= 31 ? '말일' : `${item.dueDay}일`}</div>
         </div>
       </div>
       {months > 0 && (

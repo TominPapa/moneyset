@@ -3,6 +3,7 @@
 
 import type { Transaction, AppConfig, Account, Liability, AssetSummary, RecurringItem } from './types';
 import type { SafetyInput } from './safety';
+import { effectiveDueDay } from './dueDay';
 
 // ─── 날짜 유틸 ────────────────────────────────────────────────────────────────
 
@@ -254,11 +255,14 @@ export function buildSafetyInput(
   const periodFixedExpenses = config.fixedExpenses
     .filter((fe) => fe.isActive)
     .reduce((sum, fe) => {
-      const thisMonthDue = new Date(today.getFullYear(), today.getMonth(), fe.dueDay);
+      // 말일(31)·짧은 달 보정: 그 달에 실제 존재하는 날짜로 변환
+      const thisMonthDue = new Date(today.getFullYear(), today.getMonth(),
+        effectiveDueDay(today.getFullYear(), today.getMonth(), fe.dueDay));
       // 이번 달 납부일이 이미 지났으면 다음 달 납부일 사용
       const nextDue = thisMonthDue >= today
         ? thisMonthDue
-        : new Date(today.getFullYear(), today.getMonth() + 1, fe.dueDay);
+        : new Date(today.getFullYear(), today.getMonth() + 1,
+            effectiveDueDay(today.getFullYear(), today.getMonth() + 1, fe.dueDay));
       return nextDue <= end ? sum + fe.amount : sum;
     }, 0);
 

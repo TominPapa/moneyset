@@ -12,6 +12,7 @@ import { AmountInput } from '../../components/ui/AmountInput';
 import { Button } from '../../components/ui/Button';
 import type { Liability, LiabilityKind } from '../../domain/types';
 import { defaultCategories } from '../../domain/fixtures';
+import { formatDueDay } from '../../domain/dueDay';
 import styles from './OnboardingStep3Page.module.css';
 
 const KIND_OPTIONS = [
@@ -32,10 +33,13 @@ const REQUIRED_CATEGORIES = defaultCategories
   .filter((c) => c.budgetGroup === 'required')
   .map((c) => ({ value: c.id, label: `${c.icon ?? ''} ${c.name}` }));
 
-const DUEDAY_OPTIONS = Array.from({ length: 28 }, (_, i) => ({
-  value: i + 1,
-  label: `${i + 1}일`,
-}));
+const DUEDAY_OPTIONS = [
+  ...Array.from({ length: 29 }, (_, i) => ({
+    value: i + 1,
+    label: `${i + 1}일`,
+  })),
+  { value: 31, label: '말일' },
+];
 
 interface LiabilityForm {
   name: string;
@@ -133,7 +137,7 @@ export function OnboardingStep3Page() {
               <div className={styles.itemInfo}>
                 <span className={styles.itemName}>{l.name}</span>
                 <span className={styles.itemMeta}>
-                  {KIND_LABEL[l.kind]} · {l.dueDay}일
+                  {KIND_LABEL[l.kind]} · {formatDueDay(l.dueDay)}
                 </span>
               </div>
               <div className={styles.itemRight}>

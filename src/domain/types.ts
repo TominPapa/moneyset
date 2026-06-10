@@ -167,7 +167,7 @@ export interface Liability {
   name: string;
   kind: LiabilityKind;
   monthlyAmount: number;
-  dueDay: number;            // 1-28
+  dueDay: number;            // 1-29, 31=말일(해당 월 마지막 날)
   totalBalance?: number;     // 남은 원금
   remainingMonths?: number;  // 잔여 개월
   repaymentType?: RepaymentType; // 상환 방식

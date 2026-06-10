@@ -23,6 +23,7 @@ import type {
   LiabilityKind,
   RepaymentType,
 } from '../../domain/types';
+import { DUE_DAY_OPTIONS, formatDueDay } from '../../domain/dueDay';
 import { insertSeedData, clearSeedData } from '../../dev/seedData';
 import { listBackups, saveSnapshotNow, restoreSnapshot } from '../../storage/backupService';
 import type { BackupMeta } from '../../storage/backupService';
@@ -472,7 +473,7 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
                 </div>
                 <span className={styles.listItemMeta}>
                   {acc.kind === 'insurance'
-                    ? `저축형 보험 · ${acc.insurancePaidMonths ?? 0}개월 납입 (${acc.insurancePeriodYears ?? 0}년 납) · 매달 ${acc.insuranceDueDay ?? 25}일`
+                    ? `저축형 보험 · ${acc.insurancePaidMonths ?? 0}개월 납입 (${acc.insurancePeriodYears ?? 0}년 납) · 매달 ${formatDueDay(acc.insuranceDueDay ?? 25)}`
                     : ACCOUNT_KIND_LABELS[acc.kind]}
                   {acc.institution ? ` · ${acc.institution}` : ''}
                 </span>
@@ -582,7 +583,7 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
                 <Select
                   value={String(editAcc.insuranceDueDay ?? 25)}
                   onChange={(e) => updAcc('insuranceDueDay', Number(e.target.value))}
-                  options={Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}일` }))}
+                  options={DUE_DAY_OPTIONS}
                 />
               </div>
               <div className={styles.formField}>
@@ -726,7 +727,7 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
                 <Select
                   value={String(editLiab.dueDay)}
                   onChange={(e) => updLiab('dueDay', Number(e.target.value))}
-                  options={Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}일` }))}
+                  options={DUE_DAY_OPTIONS}
                 />
               </div>
               <div className={styles.formActions}>

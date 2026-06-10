@@ -8,6 +8,7 @@ import { localCache } from '../../storage/localCacheImpl';
 import { calcSafetySummary } from '../../domain/safety';
 import { buildSafetyInput, calcAssetSummary, getBudgetPeriodForMonth, getMonthsInPeriod } from '../../domain/safetyUtils';
 import { detectReset } from '../../domain/reset';
+import { effectiveDueDay } from '../../domain/dueDay';
 import { calcSharedSettlementSummary } from '../../domain/sharedSettlement';
 import { getBudgetPlan, getRecurringItems } from '../../storage/localPlanStore';
 import type {
@@ -208,7 +209,8 @@ function CashflowChart({ remaining, fixedExpenses, dailyBudget, remainingDays }:
   for (let i = 0; i < days; i++) {
     const projDate = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() + i);
     const projDay = projDate.getDate();
-    const ev = sortedFixed.find(e => e.dueDay === projDay);
+    // 말일(31)·짧은 달 보정 후 해당 날짜에 떨어지는 고정지출 탐색
+    const ev = sortedFixed.find(e => effectiveDueDay(projDate.getFullYear(), projDate.getMonth(), e.dueDay) === projDay);
     if (ev) running -= ev.amount;
     running -= dailyDrain;
     proj.push(Math.max(-200000, Math.round(running)));
@@ -227,7 +229,7 @@ function CashflowChart({ remaining, fixedExpenses, dailyBudget, remainingDays }:
   const upcomingEvents = Array.from({ length: days }, (_, i) => {
     const projDate = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() + i);
     const projDay = projDate.getDate();
-    const ev = sortedFixed.find(e => e.dueDay === projDay);
+    const ev = sortedFixed.find(e => effectiveDueDay(projDate.getFullYear(), projDate.getMonth(), e.dueDay) === projDay);
     return ev ? { ...ev, dayIndex: i } : null;
   }).filter(Boolean).slice(0, 4) as ({ name: string; amount: number; dueDay: number; color: string; dayIndex: number })[];
 
@@ -464,10 +466,13 @@ export function HomePageDesktop() {
   const fixedInPeriod = isCurrentMonth
     ? config.fixedExpenses.filter(fe => {
         if (!fe.isActive) return false;
-        const thisMonthDue = new Date(today.getFullYear(), today.getMonth(), fe.dueDay);
+        // 말일(31)·짧은 달 보정: 그 달에 실제 존재하는 날짜로 변환
+        const thisMonthDue = new Date(today.getFullYear(), today.getMonth(),
+          effectiveDueDay(today.getFullYear(), today.getMonth(), fe.dueDay));
         const nextDue = thisMonthDue >= today
           ? thisMonthDue
-          : new Date(today.getFullYear(), today.getMonth() + 1, fe.dueDay);
+          : new Date(today.getFullYear(), today.getMonth() + 1,
+              effectiveDueDay(today.getFullYear(), today.getMonth() + 1, fe.dueDay));
         return nextDue <= periodEnd;
       })
     : [];
@@ -499,15 +504,19 @@ export function HomePageDesktop() {
   ];
 
   const fixedDDayList = [
-    ...fixedInPeriod.map(r => ({
-      name: r.name,
-      amount: r.amount,
-      dueDay: r.dueDay,
-      daysUntil: r.dueDay >= todayDay
-        ? r.dueDay - todayDay
-        : Math.round((new Date(yl, ml, r.dueDay).getTime() - new Date(yl, ml - 1, todayDay).getTime()) / (1000 * 60 * 60 * 24)),
-      isPastThisMonth: r.dueDay < todayDay,
-    })),
+    ...fixedInPeriod.map(r => {
+      // 말일(31)·짧은 달 보정 후 D-Day 계산
+      const effThisMonth = effectiveDueDay(yl, ml - 1, r.dueDay);
+      return {
+        name: r.name,
+        amount: r.amount,
+        dueDay: effThisMonth,
+        daysUntil: effThisMonth >= todayDay
+          ? effThisMonth - todayDay
+          : Math.round((new Date(yl, ml, effectiveDueDay(yl, ml, r.dueDay)).getTime() - new Date(yl, ml - 1, todayDay).getTime()) / (1000 * 60 * 60 * 24)),
+        isPastThisMonth: effThisMonth < todayDay,
+      };
+    }),
     ...transfersFromBudgetInPeriod.map(t => ({
       name: t.name,
       amount: t.amount,

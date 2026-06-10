@@ -11,6 +11,7 @@ import { Select } from '../../components/ui/Select';
 import { AmountInput } from '../../components/ui/AmountInput';
 import { Button } from '../../components/ui/Button';
 import type { Account, AccountKind } from '../../domain/types';
+import { DUE_DAY_OPTIONS, formatDueDay } from '../../domain/dueDay';
 import styles from './OnboardingStep2Page.module.css';
 
 const KIND_OPTIONS = [
@@ -126,7 +127,7 @@ export function OnboardingStep2Page() {
                 <span className={styles.itemName}>{acc.name}</span>
                 <span className={styles.itemMeta}>
                   {acc.kind === 'insurance'
-                    ? `저축형 보험 · ${acc.insurancePaidMonths ?? 0}개월 납입 (${acc.insurancePeriodYears ?? 0}년 납) · 매달 ${acc.insuranceDueDay ?? 25}일`
+                    ? `저축형 보험 · ${acc.insurancePaidMonths ?? 0}개월 납입 (${acc.insurancePeriodYears ?? 0}년 납) · 매달 ${formatDueDay(acc.insuranceDueDay ?? 25)}`
                     : KIND_LABEL[acc.kind]}
                   {acc.institution ? ` · ${acc.institution}` : ''}
                 </span>
@@ -210,7 +211,7 @@ export function OnboardingStep2Page() {
               <Select
                 label="매달 납입일"
                 value={String(form.insuranceDueDay ?? 25)}
-                options={Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}일` }))}
+                options={DUE_DAY_OPTIONS}
                 onChange={(e) => setForm((f) => ({ ...f, insuranceDueDay: Number(e.target.value) }))}
               />
               <AmountInput

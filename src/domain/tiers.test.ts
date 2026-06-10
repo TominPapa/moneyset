@@ -232,4 +232,71 @@ describe('Serverless API: /api/activate 중복 방지 및 한도 검증', () => 
       globalThis.fetch = originalFetch;
     }
   });
+
+  it('placeholder 이메일(@example.com)로 등록 시도 시 400 거부 (DB 오염 방지)', async () => {
+    mockReq = { method: 'POST', body: { code: 'TEST-CPL', email: 'unknown@example.com' } };
+    await handler(mockReq, mockRes);
+    expect(responseStatus).toBe(400);
+    expect(responseData.error).toContain('구글 계정 정보');
+
+    mockReq = { method: 'POST', body: { code: 'TEST-BSC', email: 'test_verify@example.com' } };
+    await handler(mockReq, mockRes);
+    expect(responseStatus).toBe(400);
+  });
+
+  it('기존 DB의 placeholder 이메일은 자리 계산에서 제외되어 실제 사용자가 인증 가능', async () => {
+    process.env.KV_REST_API_URL = 'https://fake-kv.upstash.io';
+    process.env.KV_REST_API_TOKEN = 'fake-token';
+
+    // 커플팩에 실사용자 1명 + placeholder 1명이 이미 등록된 상태를 재현
+    const kvStore: Record<string, string> = {
+      'sponsorship:TEST-CPL': JSON.stringify(['reala@gmail.com', 'test_verify@example.com']),
+    };
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (_url: any, init: any) => {
+      const body = JSON.parse(init.body);
+      const command = body[0];
+      const key = body[1];
+
+      if (command === 'GET') {
+        return {
+          ok: true,
+          json: async () => ({ result: kvStore[key] || null }),
+        } as any;
+      } else if (command === 'SET') {
+        kvStore[key] = body[2];
+        return {
+          ok: true,
+          json: async () => ({ result: 'OK' }),
+        } as any;
+      }
+      return { ok: false } as any;
+    };
+
+    try {
+      // 1. 신규 실사용자 B 인증 -> placeholder 자리가 회수되어 성공해야 함
+      mockReq = { method: 'POST', body: { code: 'TEST-CPL', email: 'realB@gmail.com' } };
+      await handler(mockReq, mockRes);
+      expect(responseStatus).toBe(200);
+      expect(responseData.success).toBe(true);
+
+      // 2. DB에는 placeholder가 제거되고 실사용자 2명만 남아야 함
+      const stored = JSON.parse(kvStore['sponsorship:TEST-CPL']);
+      expect(stored).toEqual(['reala@gmail.com', 'realb@gmail.com']);
+
+      // 3. 기존 사용자 A 재인증 -> 여전히 성공
+      mockReq = { method: 'POST', body: { code: 'TEST-CPL', email: 'realA@gmail.com' } };
+      await handler(mockReq, mockRes);
+      expect(responseStatus).toBe(200);
+
+      // 4. 제3의 사용자 C 인증 -> 실사용자 2명이 찼으므로 거부
+      mockReq = { method: 'POST', body: { code: 'TEST-CPL', email: 'realC@gmail.com' } };
+      await handler(mockReq, mockRes);
+      expect(responseStatus).toBe(400);
+      expect(responseData.error).toContain('초과');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

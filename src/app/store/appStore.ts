@@ -149,7 +149,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
   activatedCode: null,
   unlockWithCode: async (code: string) => {
     const normalised = code.trim().toUpperCase();
-    const email = get().userProfile?.email;
+    let email = get().userProfile?.email;
+
+    // 프로필이 아직 로드되지 않은 경우 토큰으로 직접 조회
+    // (placeholder 이메일이 DB에 등록되어 인증 자리를 차지하는 문제 방지)
+    if (!email) {
+      const token = sessionStorage.getItem('__oauth_token__');
+      if (token) {
+        try {
+          const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const p: { name?: string; email?: string; picture?: string } = await r.json();
+          if (p.email) {
+            email = p.email;
+            set({ userProfile: { name: p.name ?? '', email: p.email, picture: p.picture ?? '' } });
+          }
+        } catch { /* 아래 공통 에러 처리 */ }
+      }
+    }
+
+    if (!email) {
+      throw new Error('구글 계정 정보를 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');
+    }
 
     try {
       // 1. 서버리스 API 호출 시도 (실시간 중복 체크)
@@ -158,7 +180,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code: normalised, email: email || 'unknown@example.com' }),
+        body: JSON.stringify({ code: normalised, email }),
       });
 
       if (res.ok) {

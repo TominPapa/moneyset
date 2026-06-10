@@ -139,6 +139,14 @@ export default async function handler(
   const normalisedCode = code.trim().toUpperCase();
   const normalisedEmail = email.trim().toLowerCase();
 
+  // placeholder 이메일(구버전 클라이언트가 프로필 로드 전에 보낸 값)은 등록 거부
+  // → 실제 사용자의 인증 자리를 가짜 이메일이 차지하는 문제 방지
+  if (normalisedEmail.endsWith('@example.com')) {
+    return res.status(400).json({
+      error: '구글 계정 정보를 확인할 수 없습니다. 페이지를 새로고침한 뒤 다시 인증해 주세요.',
+    });
+  }
+
   // 1. 코드 유효성 및 티어 판별
   const tier = parseTierFromCode(normalisedCode);
   if (!tier) {
@@ -220,6 +228,10 @@ export default async function handler(
   }
 
   // 4. 인증 논리 판단
+  // 기존에 잘못 등록된 placeholder 이메일(unknown@example.com 등)은 자리 계산에서 제외
+  // → 실제 사용자가 인증하면 placeholder 자리가 자동으로 회수됨
+  emails = emails.filter((e) => !e.endsWith('@example.com'));
+
   // 이미 등록된 구글 계정이면 성공 반환
   if (emails.includes(normalisedEmail)) {
     if (redisClient) {
