@@ -126,6 +126,90 @@ export default async function handler(
     return res.status(400).json({ error: '연결된 Redis DB가 없습니다.' });
   }
 
+  // 어드민: 특정 코드의 등록 현황 조회
+  if (req.body && req.body.action === 'ADMIN_GET_CODE') {
+    const adminCode = (req.body.code || '').trim().toUpperCase();
+    const envSupporterCode = (process.env.VITE_SUPPORTER_CODE || '').trim().toUpperCase();
+    if (!envSupporterCode || adminCode !== envSupporterCode) {
+      return res.status(403).json({ error: '권한이 없습니다.' });
+    }
+    const targetCode = (req.body.targetCode || '').trim().toUpperCase();
+    if (!targetCode) return res.status(400).json({ error: 'targetCode가 필요합니다.' });
+
+    const kvUrl = process.env.KV_REST_API_URL;
+    const kvToken = process.env.KV_REST_API_TOKEN;
+    const redisUrl = process.env.REDIS_URL;
+    const key = `sponsorship:${targetCode}`;
+
+    if (kvUrl && kvToken) {
+      try {
+        const getRes = await fetch(kvUrl, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${kvToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(['GET', key]),
+        });
+        const getData = await getRes.json();
+        const emails = getData.result ? JSON.parse(getData.result) : [];
+        return res.status(200).json({ key, emails });
+      } catch (err: any) {
+        return res.status(500).json({ error: err.message });
+      }
+    } else if (redisUrl) {
+      try {
+        const client = new Redis(redisUrl, { connectTimeout: 5000, maxRetriesPerRequest: 1 });
+        const raw = await client.get(key);
+        await client.quit();
+        const emails = raw ? JSON.parse(raw) : [];
+        return res.status(200).json({ key, emails });
+      } catch (err: any) {
+        return res.status(500).json({ error: err.message });
+      }
+    }
+    return res.status(400).json({ error: '연결된 Redis DB가 없습니다.' });
+  }
+
+  // 어드민: 특정 코드의 등록 초기화 (해당 코드 키 삭제)
+  if (req.body && req.body.action === 'ADMIN_RESET_CODE') {
+    const adminCode = (req.body.code || '').trim().toUpperCase();
+    const envSupporterCode = (process.env.VITE_SUPPORTER_CODE || '').trim().toUpperCase();
+    if (!envSupporterCode || adminCode !== envSupporterCode) {
+      return res.status(403).json({ error: '권한이 없습니다.' });
+    }
+    const targetCode = (req.body.targetCode || '').trim().toUpperCase();
+    if (!targetCode) return res.status(400).json({ error: 'targetCode가 필요합니다.' });
+
+    const kvUrl = process.env.KV_REST_API_URL;
+    const kvToken = process.env.KV_REST_API_TOKEN;
+    const redisUrl = process.env.REDIS_URL;
+    const key = `sponsorship:${targetCode}`;
+
+    if (kvUrl && kvToken) {
+      try {
+        const delRes = await fetch(kvUrl, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${kvToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(['DEL', key]),
+        });
+        if (delRes.ok) {
+          return res.status(200).json({ success: true, message: `${key} 삭제 완료` });
+        }
+        return res.status(500).json({ error: '삭제 실패' });
+      } catch (err: any) {
+        return res.status(500).json({ error: err.message });
+      }
+    } else if (redisUrl) {
+      try {
+        const client = new Redis(redisUrl, { connectTimeout: 5000, maxRetriesPerRequest: 1 });
+        await client.del(key);
+        await client.quit();
+        return res.status(200).json({ success: true, message: `${key} 삭제 완료` });
+      } catch (err: any) {
+        return res.status(500).json({ error: err.message });
+      }
+    }
+    return res.status(400).json({ error: '연결된 Redis DB가 없습니다.' });
+  }
+
   const { code, email } = req.body || {};
 
   if (!code || typeof code !== 'string') {
