@@ -8,6 +8,10 @@ import styles from './LoginPage.module.css';
 const SCOPE = [
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/drive.appdata',
+  // 인증 코드 등록 시 사용자 이메일 식별에 필요 (userinfo 엔드포인트 접근 권한)
+  'openid',
+  'email',
+  'profile',
 ].join(' ');
 
 function startOAuthRedirect() {

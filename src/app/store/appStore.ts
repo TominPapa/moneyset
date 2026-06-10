@@ -169,8 +169,25 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
     }
 
+    // 이메일을 끝내 못 받은 경우 (구버전 세션: email 권한 미동의 토큰)
+    // 사용자를 막지 않고 오프라인 코드 검증으로 폴백.
+    // 서버 등록만 생략되므로 placeholder 이메일이 DB를 오염시키는 일은 없음.
     if (!email) {
-      throw new Error('구글 계정 정보를 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');
+      console.warn('[unlockWithCode] 이메일 조회 불가 — 오프라인 코드 검증으로 폴백');
+      const offlineTier = parseTierFromCode(normalised);
+      if (!offlineTier) {
+        throw new Error('유효하지 않은 인증 코드입니다. 다시 확인해 주세요.');
+      }
+      const cached = await localCache.getAppState();
+      if (cached) {
+        const updated: AppState = { ...cached, userTier: offlineTier, activatedCode: normalised };
+        await Promise.all([
+          localCache.setAppState(updated),
+          driveAdapter.writeAppState(updated),
+        ]);
+      }
+      set({ userTier: offlineTier, activatedCode: normalised });
+      return offlineTier;
     }
 
     try {
