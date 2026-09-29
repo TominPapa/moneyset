@@ -13,7 +13,7 @@
 | **버전** | V2.0 (Design System V2) |
 | **배포 URL** | https://moneyset.vercel.app |
 | **GitHub** | https://github.com/TominPapa/moneyset.git |
-| **로컬 경로** | `D:\Clode_Budget\reset-budget` |
+| **로컬 경로** | `D:\Clode_Dev\MoneySet` |
 | **배포 방식** | `npx vercel --prod` CLI 직접 배포 (GitHub 자동배포 비활성) |
 | **개발자 이메일** | jungkiwon7@gmail.com |
 

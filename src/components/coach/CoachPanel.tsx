@@ -4,11 +4,11 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../../app/store/appStore';
 import { localCache } from '../../storage/localCacheImpl';
-import { buildSafetyInput } from '../../domain/safetyUtils';
+import { buildSafetyInput, getBudgetPeriodForMonth, getMonthsInPeriod, toLocalDateStr } from '../../domain/safetyUtils';
 import { calcSafetySummary } from '../../domain/safety';
 import { generateTips } from '../../domain/coachEngine';
 import type { CoachTip, CategoryStat as EngineCatStat } from '../../domain/coachEngine';
-import { getBudgetPlan } from '../../storage/localPlanStore';
+import { getBudgetPlan, getRecurringItems } from '../../storage/localPlanStore';
 import type { Transaction } from '../../domain/types';
 import styles from './CoachPanel.module.css';
 
@@ -42,6 +42,7 @@ export function CoachPanel({ onClose }: CoachPanelProps) {
   const config       = useAppStore(s => s.config);
   const activeMonth  = useAppStore(s => s.activeMonth);
   const lastSyncedAt = useAppStore(s => s.lastSyncedAt);
+  const accounts     = useAppStore(s => s.accounts);
 
   const [tips, setTips]       = useState<CoachTip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,13 +50,22 @@ export function CoachPanel({ onClose }: CoachPanelProps) {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [txs, prevTxs] = await Promise.all([
-        localCache.getTransactions(activeMonth),
+      // payday 모드에서 예산 기간이 두 달력월에 걸치므로 기간 내 전체 버킷을 로드 (홈과 동일 기준)
+      const { start, end } = getBudgetPeriodForMonth(activeMonth, config);
+      const startStr = toLocalDateStr(start);
+      const endStr = toLocalDateStr(end);
+      const months = getMonthsInPeriod(start, end);
+      const [txBuckets, prevTxs, recurring] = await Promise.all([
+        Promise.all(months.map((ym) => localCache.getTransactions(ym))),
         localCache.getTransactions(prevYM(activeMonth)),
+        getRecurringItems(),
       ]);
+      // 안전도 계산용: 기간 내 전체 거래 / 카테고리 비교용: activeMonth 버킷
+      const periodTxs = txBuckets.flat().filter((t) => t.date >= startStr && t.date <= endStr);
+      const txs = txBuckets[months.indexOf(activeMonth)] ?? txBuckets[txBuckets.length - 1] ?? [];
 
-      // Safety 계산
-      const safetyInput = buildSafetyInput(txs as Transaction[], config);
+      // Safety 계산 — accounts/recurringItems 전달 (생활비 통장 모드를 홈과 동일하게 반영)
+      const safetyInput = buildSafetyInput(periodTxs as Transaction[], config, new Date(), undefined, accounts, recurring);
       const summary = calcSafetySummary(safetyInput);
 
       // 카테고리별 집계
@@ -115,7 +125,7 @@ export function CoachPanel({ onClose }: CoachPanelProps) {
       setTips(generated);
       setLoading(false);
     })();
-  }, [activeMonth, config, lastSyncedAt]);
+  }, [activeMonth, config, lastSyncedAt, accounts]);
 
   return (
     <div className={styles.panel}>

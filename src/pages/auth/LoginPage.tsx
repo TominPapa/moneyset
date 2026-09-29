@@ -28,6 +28,9 @@ function startOAuthRedirect() {
 
 export function LoginPage() {
   const loginStep = useAppStore((s) => s.loginStep);
+  const loginError = useAppStore((s) => s.loginError);
+  const loginErrorKind = useAppStore((s) => s.loginErrorKind);
+  const setLoginError = useAppStore((s) => s.setLoginError);
   const [isLoading, setIsLoading] = useState(false);
   const [isKakao, setIsKakao] = useState(false);
 
@@ -39,6 +42,7 @@ export function LoginPage() {
   }, []);
 
   function handleGoogleLogin() {
+    setLoginError(null);
     setIsLoading(true);
     startOAuthRedirect();
   }
@@ -68,6 +72,100 @@ export function LoginPage() {
               >
                 외부 브라우저로 열기
               </a>
+            </div>
+          )}
+
+          {loginError && (
+            <div
+              role="alert"
+              style={{
+                background: 'rgba(244,114,114,0.10)',
+                border: '1px solid rgba(244,114,114,0.35)',
+                borderRadius: 8,
+                padding: '12px 14px',
+                marginBottom: 14,
+                fontSize: 13,
+                lineHeight: 1.55,
+                color: 'var(--text-1, #d8d5cd)',
+                textAlign: 'left',
+              }}
+            >
+              <strong style={{ display: 'block', marginBottom: 4, color: '#F47272' }}>
+                불러오기에 실패했습니다
+              </strong>
+              {loginError}
+              {/* 탈출구: 로컬 판별 정보가 꼬여 로그인이 반복 실패할 때 초기화.
+                  Drive의 실제 데이터는 건드리지 않는다. */}
+              <button
+                type="button"
+                onClick={() => {
+                  sessionStorage.removeItem('__oauth_token__');
+                  localStorage.removeItem('__has_session__');
+                  for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const k = localStorage.key(i);
+                    if (k && k.startsWith('reset-budget:')) localStorage.removeItem(k);
+                  }
+                  setLoginError(null);
+                  window.location.reload();
+                }}
+                style={{
+                  display: 'block',
+                  marginTop: 10,
+                  padding: '7px 12px',
+                  fontSize: 12,
+                  borderRadius: 6,
+                  border: '1px solid rgba(255,255,255,0.22)',
+                  background: 'transparent',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                }}
+              >
+                로컬 정보 초기화 후 다시 시도
+              </button>
+
+              {/* 장부 폴더를 실수로 지웠거나 처음부터 다시 시작하려는 경우의 유일한 탈출구.
+                  Drive 권한이 drive.file 이라 사용자가 손으로 만든 폴더는 앱이 볼 수 없으므로,
+                  이 버튼 없이는 로그인 화면에서 빠져나올 방법이 없다. */}
+              {loginErrorKind === 'ledger_not_found' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ok = confirm(
+                      '새 장부를 만들어 처음부터 시작합니다.\n\n' +
+                      '기존 장부가 남아 있다면 그 데이터는 새 장부에 불러와지지 않습니다.\n' +
+                      '(기존 폴더를 지우지는 않습니다)\n\n' +
+                      '계속할까요?',
+                    );
+                    if (!ok) return;
+                    localStorage.setItem('__allow_new_ledger__', '1');
+                    localStorage.removeItem('__has_session__');
+                    sessionStorage.removeItem('__oauth_token__');
+                    for (let i = localStorage.length - 1; i >= 0; i--) {
+                      const k = localStorage.key(i);
+                      if (k && k.startsWith('reset-budget:')) localStorage.removeItem(k);
+                    }
+                    setLoginError(null);
+                    window.location.reload();
+                  }}
+                  style={{
+                    display: 'block',
+                    marginTop: 8,
+                    padding: '7px 12px',
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: '1px solid rgba(244,114,114,0.45)',
+                    background: 'transparent',
+                    color: '#F47272',
+                    cursor: 'pointer',
+                  }}
+                >
+                  새 장부로 시작하기 (처음부터)
+                </button>
+              )}
+
+              <span style={{ display: 'block', marginTop: 6, fontSize: 11, opacity: 0.7 }}>
+                Google Drive에 저장된 데이터는 삭제되지 않습니다.
+              </span>
             </div>
           )}
 

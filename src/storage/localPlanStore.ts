@@ -274,8 +274,18 @@ export async function migrateLocalDataToDrive(): Promise<void> {
   if (!driveAdapter.isAuthenticated()) return;
 
   try {
+    // ⚠️ 읽기 실패를 "Drive에 데이터 없음"으로 축약하면 안 된다.
+    // 일시 장애 시 오래된 localStorage 사본이 Drive의 최신 데이터를 덮어써
+    // 다른 기기에서 추가·수정한 내용이 소실된다. 실패하면 마이그레이션 전체를 중단한다.
+
     // 1. 정기지출 마이그레이션
-    const driveRecurring = await driveAdapter.readRecurringItems().catch(() => null);
+    let driveRecurring;
+    try {
+      driveRecurring = await driveAdapter.readRecurringItems();
+    } catch (readErr) {
+      console.warn('[Migration] Drive 조회 실패 — 마이그레이션을 건너뜁니다:', readErr);
+      return;
+    }
     const hasDriveRecurring = driveRecurring && driveRecurring.data && driveRecurring.data.length > 0;
     const localRecurring = getLocalRecurringBackup();
 
@@ -289,7 +299,13 @@ export async function migrateLocalDataToDrive(): Promise<void> {
       const key = localStorage.key(i);
       if (key && key.startsWith('reset-budget:budget:')) {
         const ym = key.replace('reset-budget:budget:', '');
-        const drivePlan = await driveAdapter.readBudgetPlan(ym).catch(() => null);
+        let drivePlan;
+        try {
+          drivePlan = await driveAdapter.readBudgetPlan(ym);
+        } catch (readErr) {
+          console.warn(`[Migration] ${ym} 예산계획 조회 실패 — 건너뜁니다:`, readErr);
+          continue; // 읽지 못한 달은 덮어쓰지 않는다
+        }
         const hasDrivePlan = drivePlan && drivePlan.data;
         const localPlan = getLocalBudgetBackup(ym);
 

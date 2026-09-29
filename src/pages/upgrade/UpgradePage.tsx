@@ -95,6 +95,7 @@ export function UpgradePage() {
   const navigate       = useNavigate();
   const userTier       = useAppStore((s) => s.userTier);
   const unlockWithCode = useAppStore((s) => s.unlockWithCode);
+  const tierPersistWarning = useAppStore((s) => s.tierPersistWarning);
 
   const [code, setCode]       = useState('');
   const [status, setStatus]   = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -138,6 +139,24 @@ export function UpgradePage() {
             </span>
             으로 업그레이드되었습니다.
           </p>
+          {tierPersistWarning && (
+            <p
+              role="alert"
+              style={{
+                fontSize: 12,
+                lineHeight: 1.55,
+                color: '#E8B86A',
+                background: 'rgba(232,184,106,0.10)',
+                border: '1px solid rgba(232,184,106,0.30)',
+                borderRadius: 8,
+                padding: '10px 12px',
+                margin: '0 0 14px',
+                textAlign: 'left',
+              }}
+            >
+              {tierPersistWarning}
+            </p>
+          )}
           <button
             className={styles.goHomeBtn}
             onClick={() => navigate(ROUTES.home, { replace: true })}

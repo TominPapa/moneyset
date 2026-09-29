@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store/appStore';
 import { localCache } from '../../storage/localCacheImpl';
-import { buildSafetyInput } from '../../domain/safetyUtils';
+import { buildSafetyInput, getBudgetPeriodForMonth, getMonthsInPeriod, toLocalDateStr } from '../../domain/safetyUtils';
 import { calcSafetySummary } from '../../domain/safety';
 import type { Transaction, Category } from '../../domain/types';
 import { ROUTES } from '../../app/routes';
@@ -59,6 +59,7 @@ interface MonthData {
 
 interface AnnualCategoryStat {
   category: Category | undefined;
+  displayName: string;
   total: number;
   percent: number;
 }
@@ -108,26 +109,37 @@ export function StatsAnnualPage() {
   }
   const totalCatExpense = annualExpense || 1;
   const catStats: AnnualCategoryStat[] = Array.from(catGrouped.entries())
-    .map(([catId, total]) => ({
-      category: catMap.get(catId),
-      total,
-      percent: (total / totalCatExpense) * 100,
-    }))
+    .map(([catId, total]) => {
+      const cat = catMap.get(catId);
+      const parent = cat?.parentId ? catMap.get(cat.parentId) : undefined;
+      return {
+        category: cat,
+        displayName: parent ? `${parent.name} - ${cat?.name ?? ''}` : (cat?.name ?? '미분류'),
+        total,
+        percent: (total / totalCatExpense) * 100,
+      };
+    })
     .sort((a, b) => b.total - a.total)
     .slice(0, 8);
 
-  // 안전도 이력 — 각 달의 마지막 날을 today로 주입해야 올바른 기간 계산이 됨
-  // (buildSafetyInput 내부의 remainingDays, periodStartStr 등이 today 기준이므로)
+  // 안전도 이력 — payday 모드 대응: 예산 월(d.ym)의 실제 기간을 계산해
+  // 기간에 걸친 달력월 버킷들에서 거래를 모으고, 기간 종료일을 today로 주입
+  // (연초 기간이 전년 12월에 걸치는 경우 전년 버킷은 미로드라 일부 과소 집계될 수 있음)
+  const monthTxMap = new Map(monthDataList.map((d) => [d.ym, d.transactions]));
   const safetyList = monthDataList.map((d) => {
-    const [sy, sm] = d.ym.split('-').map(Number);
-    const monthEnd = new Date(sy, sm, 0); // 해당 달 말일 (Day 0 of next month = last day)
-    const input = buildSafetyInput(d.transactions, config, monthEnd);
+    const { start, end } = getBudgetPeriodForMonth(d.ym, config);
+    const startStr = toLocalDateStr(start);
+    const endStr = toLocalDateStr(end);
+    const periodTxs = getMonthsInPeriod(start, end)
+      .flatMap((ym) => monthTxMap.get(ym) ?? [])
+      .filter((t) => t.date >= startStr && t.date <= endStr);
+    const input = buildSafetyInput(periodTxs, config, end);
     const summary = calcSafetySummary(input);
     return {
       ym: d.ym, month: d.month,
       score: summary.safetyScore,
       level: summary.safetyLevel,
-      hasData: d.transactions.length > 0,
+      hasData: periodTxs.length > 0,
     };
   });
 
@@ -274,7 +286,7 @@ export function StatsAnnualPage() {
                   <div key={i} className={styles.catRankItem}>
                     <span className={styles.catRankNum}>{i + 1}</span>
                     <span className={styles.catRankIcon}>{stat.category?.icon ?? '📦'}</span>
-                    <span className={styles.catRankName}>{stat.category?.name ?? '미분류'}</span>
+                    <span className={styles.catRankName}>{stat.displayName}</span>
                     <div className={styles.catRankBarTrack}>
                       <div className={styles.catRankBarFill} style={{ width: `${stat.percent}%` }} />
                     </div>

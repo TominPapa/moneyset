@@ -15,6 +15,7 @@ import { AmountInput } from '../../components/ui/AmountInput';
 import { Button } from '../../components/ui/Button';
 import type { RecurringItem, RecurringKind, RecurringCycle, Category, Account } from '../../domain/types';
 import { toLocalDateStr } from '../../domain/safetyUtils';
+import { resolveRecurring } from '../../domain/derivedState';
 import styles from './RecurringPage.module.css';
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
@@ -47,7 +48,8 @@ const TAB_KINDS: RecurringKind[] = ['regular', 'subscription', 'installment', 't
 
 function emptyItem(kind: RecurringKind): RecurringItem {
   const now = new Date().toISOString();
-  const today = now.slice(0, 10);
+  // 로컬 날짜 기준 — toISOString은 UTC라 KST 새벽(0~9시)에 "어제"로 설정되는 문제 방지
+  const today = toLocalDateStr(new Date());
   return {
     id: '',
     kind,
@@ -90,11 +92,13 @@ function RecurringItemCard({ item, categoryMap, accountMap, onEdit, onDelete, on
   const account = accountMap.get(item.accountId ?? '');
   const fromAccount = accountMap.get(item.fromAccountId ?? '');
   const toAccount   = accountMap.get(item.toAccountId ?? '');
+  // 유효 상태: 지난 납부일은 주기만큼 오늘 이후로 굴린 파생 값 (저장 데이터 불변)
+  const resolved = resolveRecurring(item);
   const daysUntil = (() => {
+    if (!resolved.nextDueDate || resolved.installmentDone) return -1;
     const today = toLocalDateStr(new Date());
-    if (item.nextDueDate < today) return -1;
     // 'T00:00:00'을 붙여 로컬 시간 기준으로 파싱 (UTC 파싱 방지 → 시간대 오차 1일 방지)
-    const diff = new Date(item.nextDueDate + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime();
+    const diff = new Date(resolved.nextDueDate + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   })();
 
@@ -133,7 +137,8 @@ function RecurringItemCard({ item, categoryMap, accountMap, onEdit, onDelete, on
                 {cat?.name ?? '미분류'}
                 {item.kind === 'regular' && item.cycle && ` · ${CYCLE_LABELS[item.cycle]}`}
                 {item.kind === 'subscription' && item.billingCycle && ` · ${CYCLE_LABELS[item.billingCycle]}`}
-                {item.kind === 'installment' && item.remainingInstallments !== undefined && ` · 잔여 ${item.remainingInstallments}회`}
+                {item.kind === 'installment' && resolved.remainingInstallments !== undefined &&
+                  (resolved.installmentDone ? ' · 완납' : ` · 잔여 ${resolved.remainingInstallments}회`)}
                 {account && ` · ${account.name}`}
               </>
             )}
@@ -151,7 +156,9 @@ function RecurringItemCard({ item, categoryMap, accountMap, onEdit, onDelete, on
 
       <div className={styles.cardBottom}>
         <span className={styles.cardDue}>
-          {item.kind === 'transfer' ? '다음 이체일' : '다음 납부'} {item.nextDueDate}
+          {resolved.installmentDone
+            ? '할부 완납'
+            : `${item.kind === 'transfer' ? '다음 이체일' : '다음 납부'} ${resolved.nextDueDate}`}
         </span>
         <div className={styles.cardActions}>
           {item.kind === 'transfer' && item.enabled && onExecuteTransfer && (
@@ -209,8 +216,9 @@ export function RecurringPage() {
 
   const categoryMap = new Map(config.categories.map((c) => [c.id, c]));
   const accountMap  = new Map(accounts.map((a) => [a.id, a]));
+  // 정기지출 카테고리는 부모 카테고리만 (서브카테고리는 안전도/예산 계산 혼동 방지)
   const requiredCategories = config.categories.filter(
-    (c) => c.entryKind === 'expense' && (c.budgetGroup === 'required' || c.budgetGroup === 'living'),
+    (c) => c.entryKind === 'expense' && (c.budgetGroup === 'required' || c.budgetGroup === 'living') && !c.parentId,
   );
 
   function openAdd() { setEditing(emptyItem(activeTab)); setSheetOpen(true); }
@@ -251,6 +259,7 @@ export function RecurringPage() {
 
   const tabItems = items.filter((i) => i.kind === activeTab);
   // yearly 주기는 월 환산 집계에서 제외 (홈화면 totalMonthly와 동일 기준)
+  // 완납된 할부(유효 잔여 회차 0)도 합계에서 제외
   const tabTotal = tabItems
     .filter((i) => i.enabled)
     .filter((i) => {
@@ -258,6 +267,7 @@ export function RecurringPage() {
       if (i.kind === 'transfer')     return i.transferCycle !== 'yearly';
       return i.cycle !== 'yearly';
     })
+    .filter((i) => !(i.kind === 'installment' && resolveRecurring(i).installmentDone))
     .reduce((s, i) => s + i.amount, 0);
 
   // 예정 납부 일정 (다음 30일)
@@ -266,11 +276,18 @@ export function RecurringPage() {
   thirtyDaysLater.setDate(today.getDate() + 30);
   const todayStr = toLocalDateStr(today);
   const laterStr = toLocalDateStr(thirtyDaysLater);
+  // 유효 납부일 기준 — 지난 날짜로 방치된 항목도 다음 도래일로 목록에 표시 (완납 할부 제외)
   const upcoming = items
-    .filter((i) => i.enabled && i.nextDueDate >= todayStr && i.nextDueDate <= laterStr)
-    .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
+    .map((i) => ({ item: i, resolved: resolveRecurring(i, todayStr) }))
+    .filter(({ item, resolved }) =>
+      item.enabled &&
+      !resolved.installmentDone &&
+      resolved.nextDueDate >= todayStr &&
+      resolved.nextDueDate <= laterStr,
+    )
+    .sort((a, b) => a.resolved.nextDueDate.localeCompare(b.resolved.nextDueDate));
 
-  // 전체 합계 (yearly 주기 항목은 월 환산에서 제외)
+  // 전체 합계 (yearly 주기 항목은 월 환산에서 제외, 완납 할부 제외)
   const totalMonthly = items
     .filter((i) => i.enabled)
     .filter((i) => {
@@ -278,6 +295,7 @@ export function RecurringPage() {
       if (i.kind === 'transfer')     return i.transferCycle !== 'yearly';
       return i.cycle !== 'yearly';
     })
+    .filter((i) => !(i.kind === 'installment' && resolveRecurring(i).installmentDone))
     .reduce((s, i) => s + i.amount, 0);
 
   return (
@@ -380,16 +398,17 @@ export function RecurringPage() {
               </div>
             ) : (
               <div className={styles.upcomingList}>
-                {upcoming.map((item) => {
+                {upcoming.map(({ item, resolved }) => {
                   const cat = categoryMap.get(item.categoryId);
                   const fromAcc = accountMap.get(item.fromAccountId ?? '');
                   const toAcc   = accountMap.get(item.toAccountId ?? '');
-                  const daysUntil = Math.ceil((new Date(item.nextDueDate + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24));
+                  const dueDate = resolved.nextDueDate;
+                  const daysUntil = Math.ceil((new Date(dueDate + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24));
                   return (
                     <div key={item.id} className={styles.upcomingItem}>
                       <div className={`${styles.upcomingDateBox} ${daysUntil <= 3 ? styles.upcomingDateBoxUrgent : ''}`}>
-                        <span className={styles.upcomingDateMo}>{item.nextDueDate.slice(5, 7)}월</span>
-                        <span className={styles.upcomingDateDay}>{item.nextDueDate.slice(8)}</span>
+                        <span className={styles.upcomingDateMo}>{dueDate.slice(5, 7)}월</span>
+                        <span className={styles.upcomingDateDay}>{dueDate.slice(8)}</span>
                         {daysUntil === 0 && <span className={styles.upcomingToday}>TODAY</span>}
                         {daysUntil > 0 && <span className={styles.upcomingDday}>D-{daysUntil}</span>}
                       </div>
@@ -416,7 +435,9 @@ export function RecurringPage() {
             <div className={styles.kindSummaryList}>
               {TAB_KINDS.map((k) => {
                 const kindItems = items.filter((i) => i.kind === k && i.enabled);
-                const kindTotal = kindItems.reduce((s, i) => s + i.amount, 0);
+                const kindTotal = kindItems
+                  .filter((i) => !(i.kind === 'installment' && resolveRecurring(i).installmentDone))
+                  .reduce((s, i) => s + i.amount, 0);
                 const pct = totalMonthly > 0 ? (kindTotal / totalMonthly) * 100 : 0;
                 return (
                   <div key={k} className={styles.kindSummaryItem}>

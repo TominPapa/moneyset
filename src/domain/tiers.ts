@@ -72,22 +72,24 @@ export function tierColor(tier: UserTier): string {
   return 'var(--text-muted)';
 }
 
-/**
- * 환경변수 VITE_ACCESS_CODES 를 파싱해 코드 → 티어 매핑 반환
- * 형식: JSON {"CODE-XXXX":"basic","CODE-YYYY":"allinone","CODE-ZZZZ":"couple"}
- */
-/**
- * 후원 코드가 유효한 경우 해당 티어를 반환, 아니면 null
- * 프론트엔드 오프라인 폴백 검증용: 오직 대표 공용 코드(VITE_SUPPORTER_CODE)만 검증하며,
- * 개별 후원 코드는 JS 번들 보안을 위해 백엔드 API에서만 처리합니다.
- */
 export function parseTierFromCode(code: string): UserTier | null {
   const normalised = code.trim().toUpperCase();
 
-  // 1. 대표 서포터 코드 검증 (VITE_SUPPORTER_CODE)
+  // 1. 대표 서포터 코드 검증
   const envSupporterCode = (import.meta.env.VITE_SUPPORTER_CODE as string || '').trim().toUpperCase();
   if (envSupporterCode && normalised === envSupporterCode) {
     return 'allinone';
+  }
+
+  // 2. 개별 후원 코드 검증 (빌드 타임에 번들에 포함)
+  const raw = (import.meta.env.VITE_ACCESS_CODES as string || '').trim();
+  if (raw) {
+    try {
+      const map: Record<string, string> = JSON.parse(raw);
+      const tier = map[normalised];
+      if (tier === 'basic' || tier === 'allinone' || tier === 'couple') return tier as UserTier;
+      if (tier === 'supporter') return 'allinone';
+    } catch { /* 파싱 실패 시 무시 */ }
   }
 
   return null;

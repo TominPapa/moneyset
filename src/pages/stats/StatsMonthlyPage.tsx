@@ -73,6 +73,7 @@ function fmtK(n: number): string {
 
 interface CategoryStat {
   category: Category | undefined;
+  displayName: string;
   catId: string;
   total: number;
   count: number;
@@ -88,13 +89,19 @@ function calcCategoryStats(transactions: Transaction[], categories: Category[]):
     grouped.set(tx.categoryId, (grouped.get(tx.categoryId) ?? 0) + tx.amount);
   }
   return Array.from(grouped.entries())
-    .map(([catId, total]) => ({
-      category: catMap.get(catId),
-      catId,
-      total,
-      count: expenseTxs.filter((t) => t.categoryId === catId).length,
-      percent: totalExpense > 0 ? (total / totalExpense) * 100 : 0,
-    }))
+    .map(([catId, total]) => {
+      const cat = catMap.get(catId);
+      const parent = cat?.parentId ? catMap.get(cat.parentId) : undefined;
+      const displayName = parent ? `${parent.name} - ${cat?.name ?? ''}` : (cat?.name ?? '미분류');
+      return {
+        category: cat,
+        displayName,
+        catId,
+        total,
+        count: expenseTxs.filter((t) => t.categoryId === catId).length,
+        percent: totalExpense > 0 ? (total / totalExpense) * 100 : 0,
+      };
+    })
     .sort((a, b) => b.total - a.total)
     .slice(0, 12);
 }
@@ -150,7 +157,7 @@ function DonutChart({ cats }: { cats: CategoryStat[] }) {
         {cats.slice(0, 8).map((c) => (
           <div key={c.catId} className={styles.donutRow}>
             <span className={styles.donutDot} style={{ background: catColor(c.catId, c.category?.colorToken) }}/>
-            <span className={styles.donutName}>{c.category?.name ?? '기타'}</span>
+            <span className={styles.donutName}>{c.displayName}</span>
             <span className={styles.donutPct}>{c.percent.toFixed(0)}%</span>
             <span className={styles.donutAmt}>{fmt(c.total)}</span>
           </div>
@@ -316,7 +323,7 @@ export function StatsMonthlyPage() {
   const avgDailyAmt = elapsedDays > 0 ? Math.round(totalExpense / elapsedDays) : 0;
   // 무지출일: 미래 날짜는 제외
   const zeroDays = dailyExpenses.filter(d => {
-    const dDate = new Date(d.dateStr);
+    const dDate = new Date(d.dateStr + 'T00:00:00'); // 로컬 시간 기준 (UTC 파싱 방지)
     return dDate <= today && d.amount === 0;
   }).length;
 
@@ -359,7 +366,7 @@ export function StatsMonthlyPage() {
     const prev = prevCatMap.get(c.catId) ?? 0;
     // 전월 지출 0이면 null로 표시 ("▼ 0%"가 아닌 "신규"로 구분)
     const delta = prev > 0 ? Math.round((c.total - prev) / prev * 100) : null;
-    return { l: c.category?.name ?? '기타', d: delta, n: c.total };
+    return { l: c.displayName, d: delta, n: c.total };
   });
 
   // Selected date transactions
@@ -561,6 +568,8 @@ export function StatsMonthlyPage() {
             ? <p style={{ fontSize: 13, color: 'var(--text-2)', padding: '12px 0' }}>거래가 없습니다</p>
             : selectedTxs.map(tx => {
               const cat = categoryMap.get(tx.categoryId);
+              const catParent = cat?.parentId ? categoryMap.get(cat.parentId) : undefined;
+              const catDisplayName = catParent ? `${catParent.name} - ${cat?.name ?? ''}` : (cat?.name ?? '미분류');
               return (
                 <div key={tx.id} className={styles.txItem}>
                   <div className={styles.txIcon}
@@ -569,7 +578,7 @@ export function StatsMonthlyPage() {
                   </div>
                   <div className={styles.txInfo}>
                     <span className={styles.txTitle}>{tx.title}</span>
-                    <span className={styles.txMeta}>{cat?.name ?? '미분류'}{tx.memo ? ` · ${tx.memo}` : ''}</span>
+                    <span className={styles.txMeta}>{catDisplayName}{tx.memo ? ` · ${tx.memo}` : ''}</span>
                   </div>
                   <span className={styles.txAmt}
                     style={{ color: tx.entryKind === 'income' ? 'var(--mint-300)' : 'var(--danger)' }}>

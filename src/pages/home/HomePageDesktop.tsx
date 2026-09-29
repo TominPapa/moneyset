@@ -9,6 +9,7 @@ import { calcSafetySummary } from '../../domain/safety';
 import { buildSafetyInput, calcAssetSummary, getBudgetPeriodForMonth, getMonthsInPeriod } from '../../domain/safetyUtils';
 import { detectReset } from '../../domain/reset';
 import { effectiveDueDay } from '../../domain/dueDay';
+import { resolveRecurring } from '../../domain/derivedState';
 import { calcSharedSettlementSummary } from '../../domain/sharedSettlement';
 import { getBudgetPlan, getRecurringItems } from '../../storage/localPlanStore';
 import type {
@@ -380,18 +381,18 @@ export function HomePageDesktop() {
   const [year, month]  = activeMonth.split('-');
   const today          = new Date();
   const todayStr       = toLocalDateStr(today);
-  const todayDay       = today.getDate();
-  const [yl, ml]       = activeMonth.split('-').map(Number);
+  // 날짜 비교/일수 계산용: 자정으로 정규화 (시각 성분 혼입으로 인한 ±1일 오차 방지)
+  const todayZero      = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   // totalDays를 먼저 선언 (아래 기간 변수들이 참조)
   const totalDays      = Math.round((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   // payday 모드 호환: 달력 월이 아닌 실제 예산 기간 내 여부로 판단
   const isCurrentMonth = realToday >= periodStart && realToday <= periodEnd;
   // 기간 잔여일 / 경과일 — payday 모드에서 달력 기준 오류 수정
   const daysLeftInPeriod = isCurrentMonth
-    ? Math.max(0, Math.ceil((periodEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
+    ? Math.max(0, Math.round((periodEnd.getTime() - todayZero.getTime()) / (1000 * 60 * 60 * 24)))
     : 0;
   const elapsedDaysInPeriod = isCurrentMonth
-    ? Math.max(1, Math.ceil((today.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+    ? Math.max(1, Math.round((todayZero.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
     : totalDays;
   const periodEndLabel = config.monthMode === 'payday' ? '기간 종료까지' : '월말까지';
 
@@ -453,6 +454,8 @@ export function HomePageDesktop() {
   const recurringTotal    = recurringItems
     .filter(r => r.enabled && r.kind !== 'transfer')
     .filter(r => r.kind === 'subscription' ? r.billingCycle !== 'yearly' : r.cycle !== 'yearly')
+    // 완납된 할부(유효 잔여 회차 0)는 월 합계에서 제외
+    .filter(r => !(r.kind === 'installment' && resolveRecurring(r, todayStr).installmentDone))
     .reduce((s,r) => s+r.amount, 0);
 
   const settlementPending = settlement.outstandingReceivable > 0 || settlement.outstandingPayable > 0;
@@ -462,61 +465,60 @@ export function HomePageDesktop() {
   const weekOk     = summary.weeklyOverspendRatio <= 1 && summary.monthlySpendableRemaining >= 0;
   const weekWarn   = summary.weeklyOverspendRatio > 1 && summary.monthlySpendableRemaining >= 0;
 
-  // 오늘~기간 종료일 사이에 납부되는 고정지출만 포함
+  // 오늘~기간 종료일 사이에 납부되는 고정지출만 포함 (다음 도래 납부일과 함께 계산)
   const fixedInPeriod = isCurrentMonth
-    ? config.fixedExpenses.filter(fe => {
-        if (!fe.isActive) return false;
-        // 말일(31)·짧은 달 보정: 그 달에 실제 존재하는 날짜로 변환
-        const thisMonthDue = new Date(today.getFullYear(), today.getMonth(),
-          effectiveDueDay(today.getFullYear(), today.getMonth(), fe.dueDay));
-        const nextDue = thisMonthDue >= today
-          ? thisMonthDue
-          : new Date(today.getFullYear(), today.getMonth() + 1,
-              effectiveDueDay(today.getFullYear(), today.getMonth() + 1, fe.dueDay));
-        return nextDue <= periodEnd;
-      })
+    ? config.fixedExpenses
+        .filter(fe => fe.isActive)
+        .map(fe => {
+          // 말일(31)·짧은 달 보정: 그 달에 실제 존재하는 날짜로 변환
+          const thisMonthDue = new Date(today.getFullYear(), today.getMonth(),
+            effectiveDueDay(today.getFullYear(), today.getMonth(), fe.dueDay));
+          // 당일 포함(todayZero 기준) — 지났으면 다음 달 납부일 사용
+          const nextDue = thisMonthDue >= todayZero
+            ? thisMonthDue
+            : new Date(today.getFullYear(), today.getMonth() + 1,
+                effectiveDueDay(today.getFullYear(), today.getMonth() + 1, fe.dueDay));
+          return { fe, nextDue };
+        })
+        .filter(({ nextDue }) => nextDue <= periodEnd)
     : [];
 
   // 생활비 통장에서 나가는 정기 이체 — 기간 내 예정 건 (차트·D-Day에 포함)
+  // 경과분을 반영한 유효 이체일 기준 (지난 날짜로 방치된 항목도 다음 도래일로 평가)
   const budgetAccountIds = new Set(accounts.filter(a => a.isActive && a.isBudgetAccount).map(a => a.id));
   const transfersFromBudgetInPeriod = isCurrentMonth
-    ? recurringItems.filter(r => {
-        if (r.kind !== 'transfer' || !r.enabled || !r.fromAccountId || !r.nextDueDate) return false;
-        if (!budgetAccountIds.has(r.fromAccountId)) return false;
-        const nextDue = new Date(r.nextDueDate + 'T00:00:00');
-        return nextDue >= today && nextDue <= periodEnd;
-      }).map(r => {
-        const nextDue = new Date(r.nextDueDate! + 'T00:00:00');
-        const daysUntil = Math.round((nextDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        return {
+    ? recurringItems
+        .filter(r =>
+          r.kind === 'transfer' && r.enabled && !!r.fromAccountId && !!r.nextDueDate &&
+          budgetAccountIds.has(r.fromAccountId))
+        .map(r => {
+          const eff = resolveRecurring(r, todayStr).nextDueDate;
+          return { r, nextDue: new Date(eff + 'T00:00:00') };
+        })
+        .filter(({ nextDue }) => nextDue >= todayZero && nextDue <= periodEnd)
+        .map(({ r, nextDue }) => ({
           name: r.title,
           amount: r.amount,
-          dueDay: parseInt(r.nextDueDate!.split('-')[2], 10),
-          daysUntil,
+          dueDay: nextDue.getDate(),
+          daysUntil: Math.round((nextDue.getTime() - todayZero.getTime()) / (1000 * 60 * 60 * 24)),
           color: 'var(--mint-500, #3fd6a4)',
-        };
-      })
+        }))
     : [];
 
   const fixedForChart = [
-    ...fixedInPeriod.map(fe => ({ name: fe.name, amount: fe.amount, dueDay: fe.dueDay, color: 'var(--gold-500)' })),
+    ...fixedInPeriod.map(({ fe, nextDue }) => ({ name: fe.name, amount: fe.amount, dueDay: nextDue.getDate(), color: 'var(--gold-500)' })),
     ...transfersFromBudgetInPeriod.map(t => ({ name: t.name, amount: t.amount, dueDay: t.dueDay, color: t.color })),
   ];
 
   const fixedDDayList = [
-    ...fixedInPeriod.map(r => {
-      // 말일(31)·짧은 달 보정 후 D-Day 계산
-      const effThisMonth = effectiveDueDay(yl, ml - 1, r.dueDay);
-      return {
-        name: r.name,
-        amount: r.amount,
-        dueDay: effThisMonth,
-        daysUntil: effThisMonth >= todayDay
-          ? effThisMonth - todayDay
-          : Math.round((new Date(yl, ml, effectiveDueDay(yl, ml, r.dueDay)).getTime() - new Date(yl, ml - 1, todayDay).getTime()) / (1000 * 60 * 60 * 24)),
-        isPastThisMonth: effThisMonth < todayDay,
-      };
-    }),
+    ...fixedInPeriod.map(({ fe, nextDue }) => ({
+      // 실제 다음 도래 납부일 기준 D-Day — payday 모드에서 달력월 혼용 오류 방지
+      name: fe.name,
+      amount: fe.amount,
+      dueDay: nextDue.getDate(),
+      daysUntil: Math.round((nextDue.getTime() - todayZero.getTime()) / (1000 * 60 * 60 * 24)),
+      isPastThisMonth: false,
+    })),
     ...transfersFromBudgetInPeriod.map(t => ({
       name: t.name,
       amount: t.amount,

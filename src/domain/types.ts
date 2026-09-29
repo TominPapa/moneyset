@@ -25,6 +25,7 @@ export interface Transaction {
   id: string;
   ledgerMonth: string;           // YYYY-MM (저장 파일 기준)
   date: ISODate;
+  time?: string;                 // HH:MM (선택) — 미입력 시 저장 시각 자동 기입
   entryKind: EntryKind;
   title: string;
   amount: number;                // 양수만 허용
@@ -49,6 +50,7 @@ export interface Category {
   icon?: string;
   colorToken?: string;
   sortOrder: number;
+  parentId?: string; // 서브카테고리인 경우 부모 카테고리 id
 }
 
 // ─── 결제수단 (PaymentMethod) ─────────────────────────────────────────────────

@@ -42,6 +42,11 @@ function todayDate(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function currentTime(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function ymToDate(ym: string): string {
   return `${ym}-01`;
 }
@@ -68,6 +73,7 @@ export function TransactionForm({
 
   const [entryKind, setEntryKind] = useState<EntryKind>(initial?.entryKind ?? 'expense');
   const [date, setDate] = useState(initial?.date ?? defaultDate ?? todayDate());
+  const [time, setTime] = useState(initial?.time ?? currentTime());
   const [amount, setAmount] = useState(initial?.amount ?? 0);
   const [title, setTitle] = useState(initial?.title ?? '');
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? '');
@@ -122,10 +128,17 @@ export function TransactionForm({
     (c) => c.entryKind === (entryKind === 'transfer' ? 'expense' : entryKind),
   );
 
-  const categoryOptions = filteredCategories.map((c) => ({
-    value: c.id,
-    label: `${c.icon ?? ''} ${c.name}`,
-  }));
+  // 부모 카테고리 → 서브카테고리 순으로 평탄화하여 옵션 생성
+  const parentCats = filteredCategories.filter((c) => !c.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+  const categoryOptions = parentCats.flatMap((parent) => {
+    const subs = filteredCategories
+      .filter((c) => c.parentId === parent.id)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    return [
+      { value: parent.id, label: `${parent.icon ?? ''} ${parent.name}` },
+      ...subs.map((s) => ({ value: s.id, label: `${parent.icon ?? ''} ${parent.name} - ${s.name}` })),
+    ];
+  });
 
   const paymentOptions = [
     { value: '', label: '결제수단 없음' },
@@ -158,11 +171,15 @@ export function TransactionForm({
     if (hasError) return;
 
     setSaving(true);
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+    // 시간 미입력 시 현재 시각 자동 기입, 기존 거래 편집 시 기존 time 유지
+    const resolvedTime = time.trim() || currentTime();
     const tx: Transaction = {
       id: initial?.id ?? `tx_${crypto.randomUUID()}`,
       ledgerMonth: ym,
       date,
+      time: resolvedTime,
       entryKind,
       title: title.trim(),
       amount,
@@ -173,8 +190,8 @@ export function TransactionForm({
       isShared,
       sharedExpenseId: initial?.sharedExpenseId,
       tags: initial?.tags,
-      createdAt: initial?.createdAt ?? now,
-      updatedAt: now,
+      createdAt: initial?.createdAt ?? nowIso,
+      updatedAt: nowIso,
     };
     try {
       await onSave(
@@ -217,15 +234,27 @@ export function TransactionForm({
         ))}
       </div>
 
-      {/* 날짜 */}
-      <Input
-        label="날짜"
-        type="date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        min={minDate ?? ymToDate(ym)}
-        max={maxDate ?? ymLastDate(ym)}
-      />
+      {/* 날짜 + 시간 */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ flex: 2 }}>
+          <Input
+            label="날짜"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            min={minDate ?? ymToDate(ym)}
+            max={maxDate ?? ymLastDate(ym)}
+          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <Input
+            label="시간"
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+          />
+        </div>
+      </div>
 
       {/* 금액 */}
       <AmountInput

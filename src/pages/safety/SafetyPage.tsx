@@ -5,9 +5,9 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '../../app/store/appStore';
 import { localCache } from '../../storage/localCacheImpl';
 import { calcSafetySummary } from '../../domain/safety';
-import { buildSafetyInput } from '../../domain/safetyUtils';
-import type { Transaction, SafetySummary, BudgetPlan } from '../../domain/types';
-import { getBudgetPlan } from '../../storage/localPlanStore';
+import { buildSafetyInput, getBudgetPeriodForMonth, getMonthsInPeriod, toLocalDateStr } from '../../domain/safetyUtils';
+import type { Transaction, SafetySummary, BudgetPlan, RecurringItem } from '../../domain/types';
+import { getBudgetPlan, getRecurringItems } from '../../storage/localPlanStore';
 import {
   IcBudget, IcWallet, IcSparkle, IcShield, IcCalendar, IcTrending,
   IcCheck, IcDownload, IcChevronLeft, IcChevronRight, IcInfo,
@@ -234,18 +234,32 @@ export function SafetyPage() {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgetPlan, setBudgetPlan] = useState<BudgetPlan | null>(null);
+  const [recurringItems, setRecurringItems] = useState<RecurringItem[]>([]);
 
   useEffect(() => {
+    // payday 모드에서 예산 기간이 두 달력월에 걸치므로 기간 내 전체 버킷을 로드 (홈과 동일 기준)
+    const { start, end } = getBudgetPeriodForMonth(activeMonth, config);
+    const startStr = toLocalDateStr(start);
+    const endStr = toLocalDateStr(end);
+    const months = getMonthsInPeriod(start, end);
     Promise.all([
-      localCache.getTransactions(activeMonth),
+      Promise.all(months.map((ym) => localCache.getTransactions(ym))).then((results) =>
+        results.flat().filter((t) => t.date >= startStr && t.date <= endStr),
+      ),
       getBudgetPlan(activeMonth),
-    ]).then(([txs, plan]) => {
+      getRecurringItems(),
+    ]).then(([txs, plan, recurring]) => {
       setTransactions(txs);
       setBudgetPlan(plan);
+      setRecurringItems(recurring);
     });
-  }, [activeMonth, lastSyncedAt]);
+  }, [activeMonth, lastSyncedAt, config]);
 
-  const safetyInput    = buildSafetyInput(transactions, config, new Date(), budgetPlan?.totalBudgetAmount ?? undefined, accounts);
+  // 홈과 동일 기준: 미래 월 조회 시 기간 시작일을 today로 사용
+  const realTodaySafety = new Date();
+  const { start: periodStartSafety } = getBudgetPeriodForMonth(activeMonth, config);
+  const virtualTodaySafety = realTodaySafety < periodStartSafety ? periodStartSafety : realTodaySafety;
+  const safetyInput    = buildSafetyInput(transactions, config, virtualTodaySafety, budgetPlan?.totalBudgetAmount ?? undefined, accounts, recurringItems);
   const summary: SafetySummary = calcSafetySummary(safetyInput);
   const levelColor     = safetyColor(summary.safetyLevel);
   const scoreNum       = summary.safetyScore;

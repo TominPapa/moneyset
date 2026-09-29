@@ -19,6 +19,15 @@ const SWIPE_FULL     = 80; // px — 삭제 버튼 노출 너비
 export function TransactionItem({ tx, category, onEdit, onDelete }: TransactionItemProps) {
   const isIncome = tx.entryKind === 'income';
   const accounts = useAppStore((s) => s.accounts);
+  const categories = useAppStore((s) => s.config.categories);
+
+  // 서브카테고리인 경우 "부모 - 서브" 형식으로 표시
+  const parentCategory = category?.parentId
+    ? categories.find((c) => c.id === category.parentId)
+    : undefined;
+  const categoryLabel = parentCategory
+    ? `${parentCategory.name} - ${category?.name ?? ''}`
+    : (category?.name ?? '미분류');
   const account = accounts.find((a) => a.id === tx.accountId);
 
   // ── 스와이프 상태 ────────────────────────────────────────────────────────────
@@ -125,9 +134,23 @@ export function TransactionItem({ tx, category, onEdit, onDelete }: TransactionI
           <span className={styles.title}>{tx.title}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
             <span className={styles.meta}>
-              {category?.name ?? '미분류'}
+              {categoryLabel}
               {tx.memo ? ` · ${tx.memo}` : ''}
             </span>
+            {tx.time && (
+              <span style={{
+                fontSize: 10,
+                background: 'rgba(255,255,255,0.06)',
+                color: 'var(--text-muted)',
+                padding: '1px 5px',
+                borderRadius: 4,
+                fontWeight: 500,
+                lineHeight: 1,
+                letterSpacing: '0.02em',
+              }}>
+                {tx.time}
+              </span>
+            )}
             {account && (
               <span style={{
                 fontSize: 10,

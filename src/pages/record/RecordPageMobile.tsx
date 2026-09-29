@@ -32,9 +32,19 @@ function nextYM(ym: string): string {
   const d = new Date(y, m, 1);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
+function txSortKey(tx: Transaction): string {
+  if (tx.time) return tx.time;
+  const d = new Date(tx.createdAt);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function groupByDate(txs: Transaction[]): Map<string, Transaction[]> {
   const map = new Map<string, Transaction[]>();
-  for (const tx of [...txs].sort((a, b) => b.date.localeCompare(a.date))) {
+  for (const tx of [...txs].sort((a, b) => {
+    const dateCmp = b.date.localeCompare(a.date);
+    if (dateCmp !== 0) return dateCmp;
+    return txSortKey(b).localeCompare(txSortKey(a));
+  })) {
     const list = map.get(tx.date) ?? [];
     list.push(tx);
     map.set(tx.date, list);

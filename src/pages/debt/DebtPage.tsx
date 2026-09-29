@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../../app/store/appStore';
 import type { Liability, Account } from '../../domain/types';
+import { effectiveRemainingMonths, effectiveLiabilityBalance } from '../../domain/derivedState';
 import styles from './DebtPage.module.css';
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────────
@@ -29,10 +30,14 @@ const LIABILITY_KIND_COLORS: Record<string, string> = {
 };
 
 function effectiveMonths(item: Liability): number {
-  if (item.remainingMonths && item.remainingMonths > 0) return item.remainingMonths;
+  // 마지막 편집 이후 경과한 납부 회차를 반영한 유효 잔여 개월 (저장 데이터 불변)
+  if (item.remainingMonths && item.remainingMonths > 0) {
+    return effectiveRemainingMonths(item) ?? item.remainingMonths;
+  }
   // 만기일시상환은 이자 = P×r이므로 totalBalance/monthlyAmount가 수십 배 틀림 → 0 처리
   if (item.repaymentType === 'bullet') return 0;
-  if (item.totalBalance && item.monthlyAmount > 0) return Math.ceil(item.totalBalance / item.monthlyAmount);
+  const bal = effectiveLiabilityBalance(item);
+  if (bal && item.monthlyAmount > 0) return Math.ceil(bal / item.monthlyAmount);
   return 0;
 }
 
@@ -204,7 +209,10 @@ function DebtCard({ item }: { item: Liability }) {
         <div className={styles.debtCardStat}>
           <div className={styles.debtCardStatLabel}>잔여원금</div>
           <div className={styles.debtCardStatValue}>
-            {item.totalBalance ? fmtShort(item.totalBalance) + '원' : '—'}
+            {(() => {
+              const bal = effectiveLiabilityBalance(item);
+              return bal ? fmtShort(bal) + '원' : '—';
+            })()}
           </div>
         </div>
         <div className={styles.debtCardStat}>
@@ -229,8 +237,8 @@ function DebtCard({ item }: { item: Liability }) {
 // ─── DebtDonut ────────────────────────────────────────────────────────────────
 
 function DebtDonut({ liabilities }: { liabilities: Liability[] }) {
-  const items = liabilities.filter(l => l.isActive && l.totalBalance && l.totalBalance > 0);
-  const total = items.reduce((s, l) => s + (l.totalBalance ?? 0), 0);
+  const items = liabilities.filter(l => l.isActive && (effectiveLiabilityBalance(l) ?? 0) > 0);
+  const total = items.reduce((s, l) => s + (effectiveLiabilityBalance(l) ?? 0), 0);
 
   if (items.length === 0 || total === 0) {
     return <div className={styles.donutEmpty}>잔여원금 데이터 없음</div>;
@@ -241,7 +249,7 @@ function DebtDonut({ liabilities }: { liabilities: Liability[] }) {
 
   let offset = 0;
   const slices = items.map((item, i) => {
-    const pct = (item.totalBalance ?? 0) / total;
+    const pct = (effectiveLiabilityBalance(item) ?? 0) / total;
     const dash = pct * circumference;
     const gap = circumference - dash;
     const color = LIABILITY_KIND_COLORS[item.kind] ?? `hsl(${i * 60}, 60%, 60%)`;
@@ -335,7 +343,7 @@ function PayoffChart({ liabilities }: { liabilities: Liability[] }) {
   const sel = allItems.find(i => i.id === selectedId) ?? allItems[0];
   const color = LIABILITY_KIND_COLORS[sel.kind] ?? '#8F8D85';
   const steps = effectiveMonths(sel); // 총 상환 개월 수 (캡 없음)
-  const principal = sel.totalBalance ?? sel.monthlyAmount * steps;
+  const principal = effectiveLiabilityBalance(sel) ?? sel.monthlyAmount * steps;
 
   function balanceAt(m: number): number {
     return calcBalanceAt(principal, sel.interestRate ?? 0, steps, sel.repaymentType, m);
@@ -491,7 +499,7 @@ function DebtRatioGauge({ liabilities, accounts }: {
   liabilities: Liability[];
   accounts: Account[];
 }) {
-  const totalDebt = liabilities.filter(l => l.isActive && l.totalBalance).reduce((s, l) => s + (l.totalBalance ?? 0), 0);
+  const totalDebt = liabilities.filter(l => l.isActive).reduce((s, l) => s + (effectiveLiabilityBalance(l) ?? 0), 0);
   const totalAssets = accounts.filter(a => a.isActive).reduce((s, a) => s + a.balance, 0);
   // 자산=0이고 부채>0이면 위험 최대(100%), 자산=0이고 부채=0이면 0%
   const ratio = totalAssets > 0
@@ -568,7 +576,7 @@ export function DebtPage() {
 
   // KPI 계산
   const totalMonthly = active.reduce((s, l) => s + l.monthlyAmount, 0);
-  const totalBalance = active.filter(l => l.totalBalance).reduce((s, l) => s + (l.totalBalance ?? 0), 0);
+  const totalBalance = active.reduce((s, l) => s + (effectiveLiabilityBalance(l) ?? 0), 0);
   const totalAssets = accounts.filter(a => a.isActive).reduce((s, a) => s + a.balance, 0);
   const score = calcScore(totalBalance, totalAssets);
   const { label: scoreLabel, color: scoreColor } = scoreLevel(score);
@@ -585,7 +593,7 @@ export function DebtPage() {
 
   // 정렬된 부채 목록
   const sortedActive = [...active].sort((a, b) => {
-    if (sortMode === 'amount') return (b.totalBalance ?? 0) - (a.totalBalance ?? 0);
+    if (sortMode === 'amount') return (effectiveLiabilityBalance(b) ?? 0) - (effectiveLiabilityBalance(a) ?? 0);
     if (sortMode === 'dueDay') return a.dueDay - b.dueDay;
     if (sortMode === 'payoff') return effectiveMonths(a) - effectiveMonths(b);
     return 0;

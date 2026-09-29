@@ -277,12 +277,15 @@ describe('calcAssetSummary', () => {
     },
   ];
 
+  // updatedAt을 현재 시각으로 — 잔여 원금은 마지막 편집 이후 경과 납부 회차만큼
+  // 감소하는 파생 값이므로, 정적 기대값 검증을 위해 경과 0회 상태로 고정
+  const liabNowIso = new Date().toISOString();
   const baseLiabilities: Liability[] = [
     {
       id: 'l1', name: '대출', kind: 'loan', monthlyAmount: 300_000,
       dueDay: 10, totalBalance: 10_000_000, categoryId: 'cat_loan',
       isActive: true, autoFixedExpense: true,
-      createdAt: '2026-04-01T00:00:00.000Z', updatedAt: '2026-04-01T00:00:00.000Z',
+      createdAt: liabNowIso, updatedAt: liabNowIso,
     },
   ];
 

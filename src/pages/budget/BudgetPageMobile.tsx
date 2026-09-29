@@ -6,7 +6,7 @@ import { useAppStore } from '../../app/store/appStore';
 import { localCache } from '../../storage/localCacheImpl';
 import { buildSafetyInput } from '../../domain/safetyUtils';
 import { calcSafetySummary } from '../../domain/safety';
-import { getBudgetPlan, saveBudgetPlan, hasPendingSync } from '../../storage/localPlanStore';
+import { getBudgetPlan, saveBudgetPlan, hasPendingSync, getRecurringItems } from '../../storage/localPlanStore';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { AmountInput } from '../../components/ui/AmountInput';
 import { Button } from '../../components/ui/Button';
@@ -94,9 +94,13 @@ export function BudgetPageMobile() {
   }, []);
 
   const load = useCallback(async () => {
-    const txs = await localCache.getTransactions(activeMonth);
+    const [txs, recurring] = await Promise.all([
+      localCache.getTransactions(activeMonth),
+      getRecurringItems(),
+    ]);
     setTransactions(txs);
-    const input = buildSafetyInput(txs, config, new Date(), undefined, accounts);
+    // recurringItems 전달 — 생활비 통장 정기이체 선차감을 홈 화면과 동일하게 반영
+    const input = buildSafetyInput(txs, config, new Date(), undefined, accounts, recurring);
     const summary = calcSafetySummary(input);
     setMonthlyBudgetBase(summary.monthlyBudgetBase);
     const existing = await getBudgetPlan(activeMonth);
@@ -105,21 +109,34 @@ export function BudgetPageMobile() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // 부모 카테고리만 (서브카테고리는 부모에 집계)
   const livingCategories = config.categories.filter(
-    c => c.entryKind === 'expense' && c.budgetGroup === 'living',
+    c => c.entryKind === 'expense' && c.budgetGroup === 'living' && !c.parentId,
   );
 
   const spentByCategory = new Map<string, number>();
   for (const tx of transactions) {
     if (tx.entryKind !== 'expense') continue;
     const cat = config.categories.find(c => c.id === tx.categoryId);
-    if (!cat || cat.budgetGroup !== 'living') continue;
-    spentByCategory.set(tx.categoryId, (spentByCategory.get(tx.categoryId) ?? 0) + tx.amount);
+    if (!cat) continue;
+    const effectiveCat = cat.parentId
+      ? (config.categories.find(c => c.id === cat.parentId) ?? cat)
+      : cat;
+    if (effectiveCat.budgetGroup !== 'living') continue;
+    const aggId = effectiveCat.id;
+    spentByCategory.set(aggId, (spentByCategory.get(aggId) ?? 0) + tx.amount);
   }
 
+  // 필수지출 맵: 서브카테고리 → 부모 카테고리로 resolve
   const requiredCategoryMap = new Map(
-    config.categories.filter(c => c.entryKind === 'expense' && c.budgetGroup === 'required').map(c => [c.id, c]),
+    config.categories.filter(c => c.entryKind === 'expense' && c.budgetGroup === 'required' && !c.parentId).map(c => [c.id, c]),
   );
+  for (const c of config.categories) {
+    if (c.parentId) {
+      const parent = config.categories.find(p => p.id === c.parentId);
+      if (parent && parent.budgetGroup === 'required') requiredCategoryMap.set(c.id, parent);
+    }
+  }
   const requiredTxs = transactions
     .filter(tx => tx.entryKind === 'expense' && requiredCategoryMap.has(tx.categoryId))
     .sort((a,b) => b.amount - a.amount);

@@ -73,6 +73,10 @@ function tx(
 // ─── 현재 연월 기준으로 시드 생성 ─────────────────────────────────────────────
 
 export async function insertSeedData(): Promise<void> {
+  // ⚠️ 실제 계좌·거래를 가짜 시드로 덮어쓴다. 개발 빌드에서만 허용.
+  if (!import.meta.env.DEV) {
+    throw new Error('개발 모드에서만 사용할 수 있는 기능입니다.');
+  }
   const now = new Date();
   const curY = now.getFullYear();
   const curM = now.getMonth() + 1; // 1-based
@@ -716,6 +720,13 @@ export async function insertSeedData(): Promise<void> {
 // ─── 시드 데이터 삭제 ─────────────────────────────────────────────────────────
 
 export async function clearSeedData(): Promise<void> {
+  // ⚠️ 이 함수는 Drive의 config를 기본값으로, 각종 목록을 빈 배열로 덮어쓴다.
+  // 즉 실제 사고("카테고리 전부 소실")와 동일한 결과를 한 번의 실행으로 만든다.
+  // 개발 빌드에서만 동작하도록 막는다 — 프로덕션에서는 버전 7회 탭으로 노출되는
+  // 개발자 도구를 실수로 눌러도 데이터가 파괴되지 않아야 한다.
+  if (!import.meta.env.DEV) {
+    throw new Error('개발 모드에서만 사용할 수 있는 기능입니다.');
+  }
   await localCache.clear();
 
   // localStorage 정리

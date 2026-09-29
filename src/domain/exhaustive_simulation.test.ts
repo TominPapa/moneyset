@@ -130,9 +130,12 @@ describe('데이터 무결성 전수검사 (Exhaustive Permutation Testing)', ()
       { id: 'a1', name: 'A', kind: 'checking', institution: 'Kakao', balance: 1000, isActive: true, isBudgetAccount: true, sortOrder: 1, lastUpdatedAt: '2026-06-01', createdAt: '2026-06-01' },
       { id: 'a2', name: 'B', kind: 'savings', institution: 'KB', balance: 2000, isActive: false, isBudgetAccount: false, sortOrder: 2, lastUpdatedAt: '2026-06-01', createdAt: '2026-06-01' }
     ];
+    // updatedAt을 현재 시각으로 — 잔여 원금은 마지막 편집 이후 경과 납부 회차만큼
+    // 감소하는 파생 값이므로, 정적 기대값 검증을 위해 경과 0회 상태로 고정
+    const nowIso = new Date().toISOString();
     const liabilities: Liability[] = [
-      { id: 'l1', name: 'L1', kind: 'loan', monthlyAmount: 100, dueDay: 25, categoryId: 'c1', totalBalance: 500, isActive: true, autoFixedExpense: true, createdAt: '2026-06-01', updatedAt: '2026-06-01' },
-      { id: 'l2', name: 'L2', kind: 'credit_card_recurring', monthlyAmount: 200, dueDay: 10, categoryId: 'c2', totalBalance: 1000, isActive: false, autoFixedExpense: true, createdAt: '2026-06-01', updatedAt: '2026-06-01' }
+      { id: 'l1', name: 'L1', kind: 'loan', monthlyAmount: 100, dueDay: 25, categoryId: 'c1', totalBalance: 500, isActive: true, autoFixedExpense: true, createdAt: nowIso, updatedAt: nowIso },
+      { id: 'l2', name: 'L2', kind: 'credit_card_recurring', monthlyAmount: 200, dueDay: 10, categoryId: 'c2', totalBalance: 1000, isActive: false, autoFixedExpense: true, createdAt: nowIso, updatedAt: nowIso }
     ];
 
     const res = calcAssetSummary(accounts, liabilities);

@@ -4,6 +4,7 @@
 import type { Transaction, AppConfig, Account, Liability, AssetSummary, RecurringItem } from './types';
 import type { SafetyInput } from './safety';
 import { effectiveDueDay } from './dueDay';
+import { resolveRecurring, effectiveLiabilityBalance } from './derivedState';
 
 // ─── 날짜 유틸 ────────────────────────────────────────────────────────────────
 
@@ -206,8 +207,16 @@ export function buildSafetyInput(
   const remainingDays = Math.max(0, daysBetween(today, end) + 1);
   const remainingDaysInCurrentWeek = Math.max(0, daysBetween(today, weekEnd) + 1);
 
-  // 카테고리 → budgetGroup 맵
-  const categoryGroup = new Map(config.categories.map((c) => [c.id, c.budgetGroup]));
+  // 카테고리 → budgetGroup 맵 (서브카테고리는 부모의 budgetGroup 사용)
+  const categoryGroup = new Map<string, string>();
+  for (const c of config.categories) {
+    if (c.parentId) {
+      const parent = config.categories.find((p) => p.id === c.parentId);
+      categoryGroup.set(c.id, parent?.budgetGroup ?? 'excluded');
+    } else {
+      categoryGroup.set(c.id, c.budgetGroup);
+    }
+  }
 
   // 생활비(living) 지출 누계 (예산 기간 내, 오늘 이전)
   const livingSpentSoFar = transactions
@@ -251,6 +260,10 @@ export function buildSafetyInput(
   const hasBudgetAccount = budgetAccounts.length > 0;
   const budgetAccountBalanceTotal = budgetAccounts.reduce((sum, a) => sum + a.balance, 0);
 
+  // 날짜 비교용: today를 자정으로 정규화
+  // (시각 포함 Date와 자정 Date를 비교하면 '납부 당일' 항목이 하루 종일 빠지는 문제 방지)
+  const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
   // 오늘 이후 ~ 기간 종료일 사이에 납부되는 고정지출 합계
   const periodFixedExpenses = config.fixedExpenses
     .filter((fe) => fe.isActive)
@@ -259,7 +272,7 @@ export function buildSafetyInput(
       const thisMonthDue = new Date(today.getFullYear(), today.getMonth(),
         effectiveDueDay(today.getFullYear(), today.getMonth(), fe.dueDay));
       // 이번 달 납부일이 이미 지났으면 다음 달 납부일 사용
-      const nextDue = thisMonthDue >= today
+      const nextDue = thisMonthDue >= todayZero
         ? thisMonthDue
         : new Date(today.getFullYear(), today.getMonth() + 1,
             effectiveDueDay(today.getFullYear(), today.getMonth() + 1, fe.dueDay));
@@ -278,8 +291,10 @@ export function buildSafetyInput(
       r.nextDueDate != null,
     )
     .reduce((sum, r) => {
-      const nextDue = new Date(r.nextDueDate! + 'T00:00:00');
-      return nextDue >= today && nextDue <= end ? sum + r.amount : sum;
+      // 경과분을 반영한 유효 이체일 기준 — 지난 날짜로 방치된 항목도 다음 도래일로 평가
+      const eff = resolveRecurring(r, toLocalDateStr(todayZero)).nextDueDate;
+      const nextDue = new Date(eff + 'T00:00:00');
+      return nextDue >= todayZero && nextDue <= end ? sum + r.amount : sum;
     }, 0);
 
   const periodFixedRemaining = periodFixedExpenses + periodTransferFromBudget;
@@ -336,9 +351,10 @@ export function calcAssetSummary(accounts: Account[], liabilities: Liability[]):
 
   const totalAssets = checkingTotal + savingsTotal + investmentTotal + insuranceTotal;
 
+  // 유효 잔여 원금(경과 납부 회차 반영 근사) 기준 — 저장 데이터는 변경하지 않음
   const totalLiabilities = liabilities
     .filter((l) => l.isActive)
-    .reduce((s, l) => s + (l.totalBalance ?? 0), 0);
+    .reduce((s, l) => s + (effectiveLiabilityBalance(l) ?? 0), 0);
 
   const netWorth = totalAssets - totalLiabilities;
 

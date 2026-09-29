@@ -177,11 +177,13 @@ export function HomePageMobile() {
   // payday 모드 호환: 달력 월이 아닌 실제 예산 기간 내 여부로 판단
   const isCurrentMonth = realToday >= periodStart && realToday <= periodEnd;
   // 기간 잔여일 / 경과일 — payday 모드에서 달력 기준 오류 수정
+  // 자정 정규화 — 시각 성분 혼입으로 경과일이 +1 되는 오차 방지
+  const todayZeroM = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const daysLeftInPeriod = isCurrentMonth
-    ? Math.max(0, Math.ceil((periodEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
+    ? Math.max(0, Math.round((periodEnd.getTime() - todayZeroM.getTime()) / (1000 * 60 * 60 * 24)))
     : 0;
   const elapsedDaysInPeriod = isCurrentMonth
-    ? Math.max(1, Math.ceil((today.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+    ? Math.max(1, Math.round((todayZeroM.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
     : totalDays;
 
   const totalIncome    = transactions.filter(t => t.entryKind === 'income').reduce((s,t) => s+t.amount, 0);

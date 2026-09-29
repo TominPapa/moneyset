@@ -171,11 +171,17 @@ export function ResetPage() {
     setCompleting(true);
     try {
       if (summaryAmount > 0 && summaryCategoryId) {
-        const now = new Date().toISOString();
+        const nowDate = new Date();
+        const now = nowDate.toISOString();
+        const nowTime = `${String(nowDate.getHours()).padStart(2, '0')}:${String(nowDate.getMinutes()).padStart(2, '0')}`;
+        const txDate = blankEnd || addDays(toLocalDateStr(new Date()), -1);
+        // 거래 날짜의 달력월 버킷에 저장 — activeMonth와 다르면(월 경계 리셋) 유령 거래가 되는 문제 방지
+        const txMonth = txDate.slice(0, 7);
         const tx: Transaction = {
           id: `tx_${crypto.randomUUID()}`,
-          ledgerMonth: activeMonth,
-          date: blankEnd || addDays(toLocalDateStr(new Date()), -1),
+          ledgerMonth: txMonth,
+          date: txDate,
+          time: nowTime,
           entryKind: 'expense',
           title: summaryMemo.trim() || `공백 기간 합산 (${blankStart}~${blankEnd})`,
           amount: summaryAmount,
@@ -184,11 +190,11 @@ export function ResetPage() {
           createdAt: now,
           updatedAt: now,
         };
-        await localCache.upsertTransaction(activeMonth, tx);
-        const txList = await localCache.getTransactions(activeMonth);
+        await localCache.upsertTransaction(txMonth, tx);
+        const txList = await localCache.getTransactions(txMonth);
         await driveAdapter.writeTransactions(
-          activeMonth,
-          makeEnvelope(`months/${activeMonth}.transactions.json`, txList),
+          txMonth,
+          makeEnvelope(`months/${txMonth}.transactions.json`, txList),
         );
         await completeSession('summary_recovery', summaryAmount, tx.title, [tx.id]);
       } else {
@@ -228,8 +234,9 @@ export function ResetPage() {
 
   const blankDates = blankStart && blankEnd ? enumerateDates(blankStart, blankEnd) : [];
 
+  // 리셋 요약 거래는 부모 카테고리에만 연결 (서브카테고리는 안전도/예산 계산 혼동 방지)
   const expenseCategories = config.categories
-    .filter((c) => c.entryKind === 'expense')
+    .filter((c) => c.entryKind === 'expense' && !c.parentId)
     .map((c) => ({ value: c.id, label: `${c.icon ?? ''} ${c.name}` }));
 
   // ─── 렌더 ────────────────────────────────────────────────────────────────────

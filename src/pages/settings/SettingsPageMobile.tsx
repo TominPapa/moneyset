@@ -24,6 +24,7 @@ import type {
   RepaymentType,
 } from '../../domain/types';
 import { DUE_DAY_OPTIONS, formatDueDay } from '../../domain/dueDay';
+import { effectiveInsurancePaidMonths } from '../../domain/derivedState';
 import { insertSeedData, clearSeedData } from '../../dev/seedData';
 import { listBackups, saveSnapshotNow, restoreSnapshot } from '../../storage/backupService';
 import type { BackupMeta } from '../../storage/backupService';
@@ -147,16 +148,23 @@ function CategoryTab({ config, onConfigChange }: CategoryTabProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing]     = useState<Category>(emptyCategory('expense', 0));
   const [saving, setSaving]       = useState(false);
+  const [subInput, setSubInput]   = useState<Record<string, string>>({});
+  const [subOpen, setSubOpen]     = useState<Record<string, boolean>>({});
 
-  const expenseCats = config.categories
-    .filter((c) => c.entryKind === 'expense')
+  const allCats = config.categories;
+  const expenseCats = allCats
+    .filter((c) => c.entryKind === 'expense' && !c.parentId)
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  const incomeCats = config.categories
-    .filter((c) => c.entryKind === 'income')
+  const incomeCats = allCats
+    .filter((c) => c.entryKind === 'income' && !c.parentId)
     .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  function getSubCats(parentId: string) {
+    return allCats.filter((c) => c.parentId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+  }
 
   function openAdd(entryKind: 'expense' | 'income') {
-    const maxOrder = Math.max(0, ...config.categories.map((c) => c.sortOrder));
+    const maxOrder = Math.max(0, ...allCats.map((c) => c.sortOrder));
     setEditing(emptyCategory(entryKind, maxOrder));
     setSheetOpen(true);
   }
@@ -166,6 +174,31 @@ function CategoryTab({ config, onConfigChange }: CategoryTabProps) {
     setSheetOpen(true);
   }
 
+  async function handleAddSub(parent: Category) {
+    const name = (subInput[parent.id] ?? '').trim();
+    if (!name) {
+      alert('서브카테고리 이름을 입력해주세요.');
+      return;
+    }
+    setSubInput((prev) => ({ ...prev, [parent.id]: '' })); // 중복 입력 방지: await 전에 먼저 초기화
+    const maxOrder = Math.max(0, ...allCats.map((c) => c.sortOrder));
+    const newSub: Category = {
+      id: `cat_${crypto.randomUUID()}`,
+      name,
+      entryKind: parent.entryKind,
+      budgetGroup: parent.budgetGroup,
+      icon: parent.icon,
+      sortOrder: maxOrder + 1,
+      parentId: parent.id,
+    };
+    await onConfigChange({ ...config, categories: [...allCats, newSub] });
+  }
+
+  async function handleDeleteSub(sub: Category) {
+    if (!window.confirm(`'${sub.name}' 서브카테고리를 삭제할까요?`)) return;
+    await onConfigChange({ ...config, categories: allCats.filter((c) => c.id !== sub.id) });
+  }
+
   async function handleSave() {
     if (!editing.name.trim()) return;
     setSaving(true);
@@ -173,8 +206,8 @@ function CategoryTab({ config, onConfigChange }: CategoryTabProps) {
       const id = editing.id || `cat_${crypto.randomUUID()}`;
       const updated: Category = { ...editing, id };
       const newCats = editing.id
-        ? config.categories.map((c) => (c.id === editing.id ? updated : c))
-        : [...config.categories, updated];
+        ? allCats.map((c) => (c.id === editing.id ? updated : c))
+        : [...allCats, updated];
       await onConfigChange({ ...config, categories: newCats });
       setSheetOpen(false);
     } finally {
@@ -184,10 +217,10 @@ function CategoryTab({ config, onConfigChange }: CategoryTabProps) {
 
   async function handleDelete() {
     if (!editing.id) return;
-    if (!window.confirm(`'${editing.name}' 카테고리를 삭제할까요?\n이 카테고리의 기존 거래는 '미분류'로 표시됩니다.`)) return;
+    if (!window.confirm(`'${editing.name}' 카테고리를 삭제할까요?\n서브카테고리도 함께 삭제됩니다.`)) return;
     setSaving(true);
     try {
-      await onConfigChange({ ...config, categories: config.categories.filter((c) => c.id !== editing.id) });
+      await onConfigChange({ ...config, categories: allCats.filter((c) => c.id !== editing.id && c.parentId !== editing.id) });
       setSheetOpen(false);
     } finally {
       setSaving(false);
@@ -209,23 +242,52 @@ function CategoryTab({ config, onConfigChange }: CategoryTabProps) {
         </div>
         <div className={styles.listCard}>
           {expenseCats.length === 0 && <p className={styles.emptyNote}>지출 카테고리가 없습니다</p>}
-          {expenseCats.map((cat) => (
-            <div
-              key={cat.id}
-              className={styles.listItem}
-              onClick={() => openEdit(cat)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && openEdit(cat)}
-            >
-              <span className={styles.listItemIcon}>{cat.icon ?? '📋'}</span>
-              <div className={styles.listItemBody}>
-                <span className={styles.listItemName}>{cat.name}</span>
-                <span className={styles.listItemMeta}>{GROUP_LABELS[cat.budgetGroup] ?? cat.budgetGroup}</span>
+          {expenseCats.map((cat) => {
+            const subs = getSubCats(cat.id);
+            const isSubOpen = subOpen[cat.id] ?? false;
+            return (
+              <div key={cat.id}>
+                <div className={styles.listItem}>
+                  <span className={styles.listItemIcon} onClick={() => openEdit(cat)} style={{ cursor: 'pointer' }}>{cat.icon ?? '📋'}</span>
+                  <div className={styles.listItemBody} onClick={() => openEdit(cat)} style={{ cursor: 'pointer' }} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && openEdit(cat)}>
+                    <span className={styles.listItemName}>{cat.name}</span>
+                    <span className={styles.listItemMeta}>{GROUP_LABELS[cat.budgetGroup] ?? cat.budgetGroup}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSubOpen((p) => ({ ...p, [cat.id]: !isSubOpen }))}
+                    style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', marginRight: 4 }}
+                  >
+                    서브 {subs.length > 0 ? `(${subs.length})` : '+'} {isSubOpen ? '▲' : '▼'}
+                  </button>
+                  <span className={styles.listItemArrow} onClick={() => openEdit(cat)} style={{ cursor: 'pointer' }}>›</span>
+                </div>
+                {isSubOpen && (
+                  <div style={{ paddingLeft: 28, borderBottom: '1px solid var(--border)' }}>
+                    {subs.map((sub) => (
+                      <div key={sub.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 12px 8px 0', gap: 8 }}>
+                        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>└</span>
+                        <span style={{ flex: 1, fontSize: 14 }}>{cat.name} - {sub.name}</span>
+                        <button type="button" onClick={() => handleDeleteSub(sub)} style={{ fontSize: 14, color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 8px' }}>×</button>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', gap: 8, padding: '8px 12px 8px 0', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>└</span>
+                      <input
+                        type="text"
+                        placeholder={`서브카테고리명`}
+                        value={subInput[cat.id] ?? ''}
+                        onChange={(e) => setSubInput((p) => ({ ...p, [cat.id]: e.target.value }))}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddSub(cat)}
+                        style={{ flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)' }}
+                      />
+                      <button type="button" onClick={() => handleAddSub(cat)} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text)' }}>추가</button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <span className={styles.listItemArrow}>›</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -236,23 +298,52 @@ function CategoryTab({ config, onConfigChange }: CategoryTabProps) {
         </div>
         <div className={styles.listCard}>
           {incomeCats.length === 0 && <p className={styles.emptyNote}>수입 카테고리가 없습니다</p>}
-          {incomeCats.map((cat) => (
-            <div
-              key={cat.id}
-              className={styles.listItem}
-              onClick={() => openEdit(cat)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && openEdit(cat)}
-            >
-              <span className={styles.listItemIcon}>{cat.icon ?? '💰'}</span>
-              <div className={styles.listItemBody}>
-                <span className={styles.listItemName}>{cat.name}</span>
-                <span className={styles.listItemMeta}>수입</span>
+          {incomeCats.map((cat) => {
+            const subs = getSubCats(cat.id);
+            const isSubOpen = subOpen[cat.id] ?? false;
+            return (
+              <div key={cat.id}>
+                <div className={styles.listItem}>
+                  <span className={styles.listItemIcon} onClick={() => openEdit(cat)} style={{ cursor: 'pointer' }}>{cat.icon ?? '💰'}</span>
+                  <div className={styles.listItemBody} onClick={() => openEdit(cat)} style={{ cursor: 'pointer' }} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && openEdit(cat)}>
+                    <span className={styles.listItemName}>{cat.name}</span>
+                    <span className={styles.listItemMeta}>수입</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSubOpen((p) => ({ ...p, [cat.id]: !isSubOpen }))}
+                    style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', marginRight: 4 }}
+                  >
+                    서브 {subs.length > 0 ? `(${subs.length})` : '+'} {isSubOpen ? '▲' : '▼'}
+                  </button>
+                  <span className={styles.listItemArrow} onClick={() => openEdit(cat)} style={{ cursor: 'pointer' }}>›</span>
+                </div>
+                {isSubOpen && (
+                  <div style={{ paddingLeft: 28, borderBottom: '1px solid var(--border)' }}>
+                    {subs.map((sub) => (
+                      <div key={sub.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 12px 8px 0', gap: 8 }}>
+                        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>└</span>
+                        <span style={{ flex: 1, fontSize: 14 }}>{cat.name} - {sub.name}</span>
+                        <button type="button" onClick={() => handleDeleteSub(sub)} style={{ fontSize: 14, color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 8px' }}>×</button>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', gap: 8, padding: '8px 12px 8px 0', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>└</span>
+                      <input
+                        type="text"
+                        placeholder={`서브카테고리명`}
+                        value={subInput[cat.id] ?? ''}
+                        onChange={(e) => setSubInput((p) => ({ ...p, [cat.id]: e.target.value }))}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddSub(cat)}
+                        style={{ flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)' }}
+                      />
+                      <button type="button" onClick={() => handleAddSub(cat)} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--text)' }}>추가</button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <span className={styles.listItemArrow}>›</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -473,7 +564,7 @@ function AssetsTab({ accounts, liabilities, onAccountsChange, onLiabilitiesChang
                 </div>
                 <span className={styles.listItemMeta}>
                   {acc.kind === 'insurance'
-                    ? `저축형 보험 · ${acc.insurancePaidMonths ?? 0}개월 납입 (${acc.insurancePeriodYears ?? 0}년 납) · 매달 ${formatDueDay(acc.insuranceDueDay ?? 25)}`
+                    ? `저축형 보험 · ${effectiveInsurancePaidMonths(acc)}개월 납입 (${acc.insurancePeriodYears ?? 0}년 납) · 매달 ${formatDueDay(acc.insuranceDueDay ?? 25)}`
                     : ACCOUNT_KIND_LABELS[acc.kind]}
                   {acc.institution ? ` · ${acc.institution}` : ''}
                 </span>
@@ -795,10 +886,11 @@ function DataTab({ config, showDevTools }: DataTabProps) {
       await restoreSnapshot(b.fileId);
       setBackupMsg({ text: '복원 완료! 새로고침합니다…', type: 'success' });
       setTimeout(() => window.location.reload(), 1500);
-    } catch {
-      setBackupMsg({ text: '복원 중 오류가 발생했습니다.', type: 'error' });
-      setBackupWorking(false);
-      setTimeout(() => setBackupMsg(null), 4000);
+    } catch (err) {
+      // 부분 실패 시 메모리 캐시가 폐기된 상태이므로 반드시 새로고침해 재로드해야 한다
+      const msg = err instanceof Error ? err.message : '복원 중 오류가 발생했습니다.';
+      setBackupMsg({ text: msg, type: 'error' });
+      setTimeout(() => window.location.reload(), 3500);
     }
   }
 

@@ -32,9 +32,22 @@ function nextYM(ym: string): string {
   const d = new Date(y, m, 1);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
+/** 날짜 내 정렬 키: time 있으면 그대로, 없으면 createdAt의 HH:MM 추출 */
+function txSortKey(tx: Transaction): string {
+  if (tx.time) return tx.time;
+  // 기존 데이터 fallback: ISO 타임스탬프에서 로컬 HH:MM 추출
+  const d = new Date(tx.createdAt);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function groupByDate(txs: Transaction[]): Map<string, Transaction[]> {
   const map = new Map<string, Transaction[]>();
-  for (const tx of [...txs].sort((a, b) => b.date.localeCompare(a.date))) {
+  // 1차: 날짜 내림차순, 2차: 같은 날짜 내 시간 내림차순 (최신 거래 위)
+  for (const tx of [...txs].sort((a, b) => {
+    const dateCmp = b.date.localeCompare(a.date);
+    if (dateCmp !== 0) return dateCmp;
+    return txSortKey(b).localeCompare(txSortKey(a));
+  })) {
     const list = map.get(tx.date) ?? [];
     list.push(tx);
     map.set(tx.date, list);
