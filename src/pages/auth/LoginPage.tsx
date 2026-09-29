@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../../app/store/appStore';
+import { SELECT_ACCOUNT_FLAG } from './authFlags';
 import styles from './LoginPage.module.css';
 
 const SCOPE = [
@@ -22,6 +23,10 @@ function startOAuthRedirect() {
     scope: SCOPE,
     include_granted_scopes: 'true',
   });
+  if (sessionStorage.getItem(SELECT_ACCOUNT_FLAG) === '1') {
+    params.set('prompt', 'select_account');
+    sessionStorage.removeItem(SELECT_ACCOUNT_FLAG);
+  }
   window.location.href =
     `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }

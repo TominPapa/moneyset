@@ -72,25 +72,10 @@ export function tierColor(tier: UserTier): string {
   return 'var(--text-muted)';
 }
 
-export function parseTierFromCode(code: string): UserTier | null {
-  const normalised = code.trim().toUpperCase();
-
-  // 1. 대표 서포터 코드 검증
-  const envSupporterCode = (import.meta.env.VITE_SUPPORTER_CODE as string || '').trim().toUpperCase();
-  if (envSupporterCode && normalised === envSupporterCode) {
-    return 'allinone';
-  }
-
-  // 2. 개별 후원 코드 검증 (빌드 타임에 번들에 포함)
-  const raw = (import.meta.env.VITE_ACCESS_CODES as string || '').trim();
-  if (raw) {
-    try {
-      const map: Record<string, string> = JSON.parse(raw);
-      const tier = map[normalised];
-      if (tier === 'basic' || tier === 'allinone' || tier === 'couple') return tier as UserTier;
-      if (tier === 'supporter') return 'allinone';
-    } catch { /* 파싱 실패 시 무시 */ }
-  }
-
-  return null;
-}
+// ─── 인증 코드 검증은 서버(/api/activate) 전용 ────────────────────────────────
+//
+// ⚠️ 이 파일(클라이언트)에 코드 검증 로직을 두지 말 것.
+// 클라이언트에서 import.meta.env.VITE_ACCESS_CODES / VITE_SUPPORTER_CODE 를 참조하면
+// Vite 가 그 값을 공개 JS 번들에 그대로 박아 넣어, 누구나 브라우저에서 전체 코드와
+// 관리자 코드를 읽을 수 있게 된다. 한 번 제거했다가 다시 들어가 실제로 노출된 적이 있다.
+// 재발 방지는 src/domain/secretLeak.test.ts 가 검사한다.

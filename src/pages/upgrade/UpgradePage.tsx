@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store/appStore';
 import { tierLabel, tierColor, type UserTier } from '../../domain/tiers';
 import { ROUTES } from '../../app/routes';
+import { SELECT_ACCOUNT_FLAG } from '../auth/authFlags';
 import styles from './UpgradePage.module.css';
 
 // ─── 플랜 카드 데이터 ────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ export function UpgradePage() {
   const userTier       = useAppStore((s) => s.userTier);
   const unlockWithCode = useAppStore((s) => s.unlockWithCode);
   const tierPersistWarning = useAppStore((s) => s.tierPersistWarning);
+  const logout         = useAppStore((s) => s.logout);
 
   const [code, setCode]       = useState('');
   const [status, setStatus]   = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -200,7 +202,7 @@ export function UpgradePage() {
             value={code}
             onChange={(e) => { setCode(e.target.value.toUpperCase()); setStatus('idle'); }}
             onKeyDown={handleKeyDown}
-            placeholder="예: BASIC-XXXX 또는 AOI-XXXX"
+            placeholder="예: MS-AIO-XXXXXX"
             maxLength={20}
             spellCheck={false}
             autoComplete="off"
@@ -222,6 +224,31 @@ export function UpgradePage() {
         <p className={styles.codeHint}>
           💬 텀블벅 메시지함에서 발급된 코드를 확인하세요.
         </p>
+        {/* 무료 사용자는 이 화면 밖으로 나갈 경로가 없다(설정·돌아가기 모두 막힘).
+            이메일 권한이 없는 옛 계정 토큰이거나 다른 계정으로 바꾸려는 경우의 탈출구. */}
+        {isFree && (
+          <button
+            type="button"
+            onClick={async () => {
+              // 다음 구글 로그인에서 계정 선택 화면을 강제한다 (logout 은 sessionStorage 의 토큰만 지운다)
+              sessionStorage.setItem(SELECT_ACCOUNT_FLAG, '1');
+              await logout();
+              navigate(ROUTES.login, { replace: true });
+            }}
+            style={{
+              marginTop: 10,
+              padding: 0,
+              border: 'none',
+              background: 'none',
+              color: 'var(--text-muted, #8F8D85)',
+              fontSize: 12,
+              textDecoration: 'underline',
+              cursor: 'pointer',
+            }}
+          >
+            다른 계정으로 로그인
+          </button>
+        )}
       </div>
 
       {/* ── 플랜 비교 ── */}

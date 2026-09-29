@@ -11,7 +11,6 @@ import { create } from 'zustand';
 import type { AppConfig, ThemeMode, Account, Liability, Transaction } from '../../domain/types';
 import { defaultAppConfig } from '../../domain/fixtures';
 import type { AppState, UserTier } from '../../storage/driveAdapter';
-import { parseTierFromCode } from '../../domain/tiers';
 import { driveAdapter } from '../../storage/driveAdapterImpl';
 import { localCache } from '../../storage/localCacheImpl';
 import { saveBudgetPlan, saveRecurringItems, upsertRecurringItem, syncPendingToDrive, migrateLocalDataToDrive } from '../../storage/localPlanStore';
@@ -233,6 +232,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     // 프로필이 아직 로드되지 않은 경우 토큰으로 직접 조회
     // (placeholder 이메일이 DB에 등록되어 인증 자리를 차지하는 문제 방지)
+    let userinfoNetworkFailed = false;
+    let userinfoExpired = false;
     if (!email) {
       const token = sessionStorage.getItem('__oauth_token__');
       if (token) {
@@ -240,83 +241,72 @@ export const useAppStore = create<AppStore>((set, get) => ({
           const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
             headers: { Authorization: `Bearer ${token}` },
           });
+          if (r.status === 401) userinfoExpired = true;
           const p: { name?: string; email?: string; picture?: string } = await r.json();
           if (p.email) {
             email = p.email;
             set({ userProfile: { name: p.name ?? '', email: p.email, picture: p.picture ?? '' } });
           }
-        } catch { /* 아래 공통 에러 처리 */ }
+        } catch {
+          userinfoNetworkFailed = true;
+        }
       }
     }
+
+    if (!email && userinfoNetworkFailed) {
+      throw new Error('네트워크 연결이 불안정합니다. 잠시 후 다시 시도해 주세요.');
+    }
+    if (!email && userinfoExpired) {
+      throw new Error(
+        '로그인 세션이 만료되었습니다. 아래 "다른 계정으로 로그인"을 눌러 다시 로그인한 뒤 인증해 주세요.',
+      );
+    }
+
+    // ⚠️ 인증 코드 검증은 서버에서만 한다 (클라이언트 오프라인 폴백 없음).
+    // 예전에는 서버 호출이 실패하면 브라우저에서 코드 목록으로 직접 검증했는데,
+    // 그러려면 코드 목록을 공개 JS 번들에 넣어야 해서 누구나 코드를 읽을 수 있었다.
+    // 또 오프라인 검증은 계정 등록을 건너뛰어 1코드 1계정 제한도 무력화했다.
 
     // 이메일을 끝내 못 받은 경우 (구버전 세션: email 권한 미동의 토큰)
-    // 사용자를 막지 않고 오프라인 코드 검증으로 폴백.
-    // 서버 등록만 생략되므로 placeholder 이메일이 DB를 오염시키는 일은 없음.
+    // → 서버가 계정을 식별할 수 없으므로 재로그인으로 권한을 다시 받게 한다.
     if (!email) {
-      console.warn('[unlockWithCode] 이메일 조회 불가 — 오프라인 코드 검증으로 폴백');
-      const offlineTier = parseTierFromCode(normalised);
-      if (!offlineTier) {
-        throw new Error('유효하지 않은 인증 코드입니다. 다시 확인해 주세요.');
-      }
-      const r = await persistTierToAppState(offlineTier, normalised, get().appStateTrusted);
-      set({
-        userTier: offlineTier,
-        activatedCode: normalised,
-        tierPersistWarning: r.persisted ? null : TIER_NOT_PERSISTED_MSG,
-      });
-      return offlineTier;
+      throw new Error(
+        '구글 계정의 이메일 권한이 없어 인증할 수 없습니다. ' +
+        '아래 "다른 계정으로 로그인"을 눌러 다시 로그인한 뒤 인증해 주세요.',
+      );
     }
 
+    let res: Response;
     try {
-      // 1. 서버리스 API 호출 시도 (실시간 중복 체크)
-      const res = await fetch('/api/activate', {
+      res = await fetch('/api/activate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ code: normalised, email }),
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        const newTier = data.tier as UserTier;
-        if (!newTier) {
-          throw new Error('서버 응답에서 올바른 플랜 정보를 받지 못했습니다.');
-        }
-
-        const r = await persistTierToAppState(newTier, normalised, get().appStateTrusted);
-        set({
-          userTier: newTier,
-          activatedCode: normalised,
-          tierPersistWarning: r.persisted ? null : TIER_NOT_PERSISTED_MSG,
-        });
-        return newTier;
-      } else {
-        const data = await res.json().catch(() => ({ error: '알 수 없는 서버 오류' }));
-        throw new Error(data.error || '인증 코드 검증에 실패했습니다.');
-      }
-    } catch (err: any) {
-      // 서버에서 명시적으로 거절한 한도 초과 오류의 경우, 폴백하지 않고 에러를 화면으로 그대로 전달
-      if (err.message && (err.message.includes('초과') || err.message.includes('이미 다른 구글 계정'))) {
-        throw err;
-      }
-
-      console.warn('API activation failed, falling back to offline check:', err);
-
-      // 2. 오프라인 폴백 검증 (서버리스 통신 장애 또는 로컬 개발 환경용)
-      const offlineTier = parseTierFromCode(normalised);
-      if (!offlineTier) {
-        throw new Error('유효하지 않은 인증 코드입니다. 다시 확인해 주세요.');
-      }
-
-      const r = await persistTierToAppState(offlineTier, normalised, get().appStateTrusted);
-      set({
-        userTier: offlineTier,
-        activatedCode: normalised,
-        tierPersistWarning: r.persisted ? null : TIER_NOT_PERSISTED_MSG,
-      });
-      return offlineTier;
+    } catch {
+      throw new Error('인증 서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
     }
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: '' }));
+      throw new Error(data.error || '인증 코드 검증에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+
+    const data = await res.json().catch(() => ({}));
+    const newTier = data.tier as UserTier;
+    if (!newTier) {
+      throw new Error('서버 응답에서 올바른 플랜 정보를 받지 못했습니다.');
+    }
+
+    const r = await persistTierToAppState(newTier, normalised, get().appStateTrusted);
+    set({
+      userTier: newTier,
+      activatedCode: normalised,
+      tierPersistWarning: r.persisted ? null : TIER_NOT_PERSISTED_MSG,
+    });
+    return newTier;
   },
 
   onboardingCompleted: false,

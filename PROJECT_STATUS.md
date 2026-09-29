@@ -1,6 +1,6 @@
 # 머니셋 (MoneySET) — 프로젝트 현황 문서
 
-> **최종 업데이트**: 2026-06-09  
+> **최종 업데이트**: 2026-09-29  
 > 세션 압축 시 컨텍스트 복원용 기준 문서. 코드 변경 시 이 파일도 함께 업데이트할 것.
 
 ---
@@ -45,13 +45,24 @@ ioredis 5           — Vercel Serverless /api/activate 용 Redis 클라이언�
 
 ### 환경 변수 (`.env` / Vercel Production)
 ```env
-VITE_GOOGLE_CLIENT_ID=...   ← Google Cloud Console OAuth 2.0 클라이언트 ID
-VITE_SUPPORTER_CODE=...     ← 대표 공용 서포터 코드 (오프라인 폴백용)
-VITE_ACCESS_CODES=...       ← 100여 개 텀블벅 후원 코드 매핑 JSON 문자열 (Vercel에만 격리 등록)
-REDIS_URL=...               ← Upstash/Official Redis TCP 연결 주소 (중복 등록 제한용)
-KV_REST_API_URL=...         ← Upstash Redis REST API 엔드포인트 URL
-KV_REST_API_TOKEN=...       ← Upstash Redis REST API 인증 토큰
+# 클라이언트 공개값 — VITE_ 접두사 (공개 JS 번들에 들어감)
+VITE_GOOGLE_CLIENT_ID=...   ← Google Cloud Console OAuth 2.0 클라이언트 ID (설계상 공개 값)
+
+# 서버 전용 비밀값 — VITE_ 접두사 절대 금지 (api/ 에서만 읽음, Vercel 에 sensitive 로 등록)
+ACCESS_CODES=...            ← 인증 코드 목록 JSON {"MS-AIO-XXXXX-XXXXX":"allinone", ...} — 유일한 기준
+SUPPORTER_CODE=...          ← 대표 서포터 코드 (없으면 옛 VITE_SUPPORTER_CODE 사용)
+ADMIN_SECRET=...            ← 관리자 기능 전용 비밀값 (24자 이상). 인증 코드와 절대 공유 금지
+ACTIVATION_FAIL_CLOSED=1    ← DB 장애 시 인증 거부. DB 가 정상일 때만 켤 것 (현재 미설정)
+REDIS_URL=...               ← Redis TCP 주소 (1코드 1계정 제한용) — ⚠️ 2026-09 현재 DB 삭제됨
+KV_REST_API_URL / KV_REST_API_TOKEN ← Upstash REST (REDIS_URL 대신 사용 가능)
+
+# 옛 변수 (서버에서만 폴백으로 읽음, 이관 완료 후 Vercel 에서 삭제 예정)
+VITE_ACCESS_CODES / VITE_SUPPORTER_CODE
 ```
+
+> ⚠️ 비밀값에 `VITE_` 접두사를 붙이고 클라이언트에서 참조하면 Vite 가 값을 공개 번들에 박아 넣는다.
+> 실제로 이 경로로 코드가 노출된 적이 있다. `npm run build` 가
+> `secretLeak.test.ts`(소스 검사)와 `scripts/scan-dist.mjs`(결과물 검사)로 이를 막는다.
 
 ---
 
@@ -71,12 +82,20 @@ KV_REST_API_TOKEN=...       ← Upstash Redis REST API 인증 토큰
 ### C. 서포터즈 정품 인증 & 중복 기기 등록 차단 (Vercel Serverless API)
 - 사용자가 서포터 코드를 입력하면 프론트엔드는 `/api/activate` API로 인증을 요청합니다.
 - **백엔드 검증**:
-  1. 전달받은 코드가 Vercel 대시보드 내에 격리 보관되는 `VITE_ACCESS_CODES`에서 로드된 유효한 코드인지 체크하고 티어를 판별합니다.
+  1. 전달받은 코드가 `ACCESS_CODES`(없으면 옛 `VITE_ACCESS_CODES`)에 있는 유효한 코드인지 체크하고 티어를 판별합니다.
   2. 판별된 티어에 따라 기기(계정) 제한 한도(`basic` 1대, `couple` 2대)를 확인합니다.
   3. Redis DB(`sponsorship:${code}`)에서 기존 등록된 구글 계정(이메일) 목록을 가져와, 이미 등록된 계정이면 재인증 성공을, 새로운 계정이지만 제한 한도 미만이면 이메일을 등록하고 활성화 성공을, 제한을 초과했으면 400 차단 응답을 보냅니다.
-- **보안 무결성 보장**:
-  - 깃허브 퍼블릭 저장소에 민감 코드가 노출되지 않도록 서버리스 코드 내 하드코딩 리스트를 완전히 제거했습니다.
-  - 빌드된 프론트엔드 JS 번들 파일에 텀블벅 후원 코드가 유출되는 사고를 원천 차단. `src/domain/tiers.ts`에서 개별 코드 파싱을 삭제하고 백엔드 API 단독 검증 구조로 격리. (클라이언트는 오직 공용 대표 코드인 `VITE_SUPPORTER_CODE`만 오프라인 폴백 검증을 지원합니다.)
+- **보안 체계 (2026-09-29 개편)**:
+  - 코드 검증은 **서버 전용**. 클라이언트에는 코드 목록도, 오프라인 폴백도 없다.
+  - 관리자 기능은 `ADMIN_SECRET` 으로만 호출 가능 (예전엔 공개된 서포터 코드로 전체 초기화가 가능했음).
+    - `{"action":"ADMIN_CODE_STATUS","secret":"..."}` — 코드별 사용 현황 조회 (읽기 전용, 이메일 마스킹).
+      DB 에 연결할 수 없어도 코드 목록과 DB 오류는 반환한다. **코드 등록 확인은 이걸로 할 것** —
+      올인원은 1계정뿐이라 시험 삼아 인증하면 구매자 몫을 써버린다.
+    - `{"action":"ADMIN_RESET","secret":"..."}` — 코드-계정 연결 전체 삭제.
+  - 신규 코드는 `MS-(AIO|BSC|CPL)-XXXXX-XXXXX` (10자리, 헷갈리는 문자 0/O/1/I/L 제외).
+- **코드 교체 원칙**: 노출이 의심되는 코드는 되돌릴 수 없다.
+  이미 퍼진 값은 되돌릴 수 없으므로 교체(폐기 후 재발급)만이 근본 해결이다. 신규 판매에는 새로 생성한 코드만 쓴다.
+- **로컬 개발**: `vite` 개발 서버는 `/api/activate` 를 제공하지 않는다. 인증까지 테스트하려면 `vercel dev`.
 
 ---
 
